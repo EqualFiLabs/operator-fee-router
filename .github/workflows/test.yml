@@ -1,0 +1,55 @@
+name: test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  foundry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+
+      - name: Check formatting
+        run: forge fmt --check
+
+      - name: Build contracts
+        run: forge build --sizes
+
+      - name: Run tests
+        run: forge test -vv
+
+      - name: Run security profile
+        run: FOUNDRY_PROFILE=security forge test -vv
+
+  formal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+
+      - name: Install Halmos
+        run: pipx install halmos==0.3.3
+
+      - name: Prove 24-hour timelock floor
+        run: halmos --contract OperatorFeeRouterTimelockHalmosTest --solver-timeout-assertion 2m --panic-error-codes '*'
+
+      - name: Prove Operator sync classification and weight deltas
+        run: halmos --contract OperatorSyncHalmosTest --solver-timeout-assertion 2m --panic-error-codes '*'
