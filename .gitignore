@@ -2,6 +2,7 @@
 /out/
 /broadcast/
 /snapshots/
+/.certora_internal/
 /.env
 /.idea/
 /.vscode/

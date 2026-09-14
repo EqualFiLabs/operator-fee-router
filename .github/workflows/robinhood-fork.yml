@@ -1,0 +1,29 @@
+name: robinhood-fork
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ROBINHOOD_MAINNET: ${{ secrets.ROBINHOOD_MAINNET }}
+      RUN_FULL_ROUTER_FORK: "true"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+
+      - name: Require configured fork RPC
+        run: test -n "$ROBINHOOD_MAINNET"
+
+      - name: Run pinned full canonical lifecycle gate
+        run: forge test --match-contract OperatorFeeRouterForkTest -vv
