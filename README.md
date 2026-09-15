@@ -11,6 +11,10 @@ The normative design is tracked in [issue #1](https://github.com/EqualFiLabs/ope
 See [the architecture document](docs/architecture.md) for the trust boundary, synchronization rules, forfeiture
 accounting, and integration interface.
 
+Deployment evidence is indexed by network under [`deployments/`](deployments/). The disposable Robinhood Testnet
+Router used by the Statics Lottery is documented separately in
+[`docs/robinhood-testnet.md`](docs/robinhood-testnet.md); it does not replace the production timelock model below.
+
 ## Development
 
 ```bash
