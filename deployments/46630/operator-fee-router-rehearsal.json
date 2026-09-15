@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "network": {
+    "name": "Robinhood Testnet",
+    "chainId": 46630
+  },
+  "release": {
+    "repository": "EqualFiLabs/operator-fee-router",
+    "sourceCommit": "f98a17780cb250ce28f446ab54eb078512fb2e0b",
+    "compiler": "0.8.33+commit.64118f21",
+    "evmVersion": "cancun",
+    "optimizerRuns": 200,
+    "bytecodeHash": "none",
+    "foundry": "1.7.1",
+    "forgeStdCommit": "bf647bd6046f2f7da30d0c2bf435e5c76a780c1b",
+    "openzeppelinCommit": "5fd1781b1454fd1ef8e722282f86f9293cacf256"
+  },
+  "staticsGenesisReplica": {
+    "repository": "EqualFiLabs/statics",
+    "manifestCommit": "31e870900615197277bcccef6bfdb06dba452930",
+    "manifestPath": "deployments/robinhood-testnet-46630-rehearsal-20260903T033729Z.json",
+    "sourceCommit": "43018f109006aa2c2eef2808adc2aa74dfc9a6d4b",
+    "contracts": {
+      "operatorCollection": {
+        "address": "0x6c9197347161FC140a209175849d443FeaAF509c",
+        "runtimeKeccak256": "0xec224f66ecfa265dd306c54b2b683ba96395cd8f822dd2d51f84a2bac9d62afa"
+      },
+      "activationRegistry": {
+        "address": "0x8cE462A801726FA030e06264f3423Be2Ae8d6414",
+        "runtimeKeccak256": "0xc4bf24efb6c99c95060186a30200b7ee952604d77b917d0dae2cde87e6419e82"
+      },
+      "operatorVault": {
+        "address": "0x8D3a32ddF8bD529EC847457eC79620D2870FFdc4",
+        "runtimeKeccak256": "0x34641b08c85d3dc3e9b94551cb3b7b8d3a664dd773504849aec07499db5bb660"
+      }
+    }
+  },
+  "deployment": {
+    "deployer": "0x6Ae2aD9905FEDC8270b828294D4b9CEC7CBBE316",
+    "testnetAdmin": {
+      "address": "0x79c89f35d60fC2C0aEC9F5bB6D0B34d4c4B6dB87",
+      "runtimeKeccak256": "0x2ad320342a7fa2a96f6ca75f54dc05021bc82749d092264158aa635a1d7d59d7",
+      "sourcePath": "src/testnet/TestnetRouterAdmin.sol",
+      "transactionHash": "0x8a6480dd0bcd34593c648d8607f33b82217f051571eb13da0303bf08a3ae6a46",
+      "blockNumber": 119611181,
+      "gasUsed": 305228
+    },
+    "router": {
+      "address": "0xE7Bb1D2766377984546611291732cED1833C0c36",
+      "runtimeKeccak256": "0x5a24031cd7a3a71fd9c284ce64a07ec9585a8e325c947342cdc5b68b600fd1b8",
+      "constructorArguments": {
+        "operatorCollection": "0x6c9197347161FC140a209175849d443FeaAF509c",
+        "activationRegistry": "0x8cE462A801726FA030e06264f3423Be2Ae8d6414",
+        "operatorVault": "0x8D3a32ddF8bD529EC847457eC79620D2870FFdc4",
+        "routerTimelock": "0x79c89f35d60fC2C0aEC9F5bB6D0B34d4c4B6dB87"
+      },
+      "transactionHash": "0x653e3becaaf888bc10c93dfdab0e1f71906ff8fa596e1c8a370db4a56db47acc",
+      "blockNumber": 119611182,
+      "gasUsed": 2940206
+    },
+    "adminBinding": {
+      "operation": "bindRouter(address)",
+      "transactionHash": "0x246df9c4a37c30d516bcb0bfd6f6cb76a0eeef58f1ab96ad946353a8cc11d528",
+      "blockNumber": 119611185,
+      "gasUsed": 52891
+    }
+  },
+  "configuration": {
+    "bootstrap": {
+      "firstOperatorId": 1,
+      "lastOperatorId": 5555,
+      "requestedBatchSize": 100,
+      "transactionCount": 56,
+      "firstBlock": 119619704,
+      "lastBlock": 119619804,
+      "transactionHashes": [
+        "0xd203ee97817c5e457efcceef8b5f8d550bb35c9b2e6a7de9496603f64c002abd",
+        "0x42b24a32b76d290bca750e2bf996fc970625acebda42627b9ee5773e4f361bef",
+        "0x1b9ec26f6a53131691a0e1f86b1ee341f5f6df015899d528300215eb7174d6ef",
+        "0xa2132ecab677b9ecc84c66080431addfe9f9ab3d9a83f9ab68c978dd5e9be91d",
+        "0xaba24eda688ce3debbdccf621abc70e77d36f9fd3db6b79b981e91466fce2d3a",
+        "0x89d9c563c166ff0236ccb03b2e33d56fc12b314b57b8c83441c560b3b3fd0c0a",
+        "0x2f3b64bb377d5d9f2e73b04390bc7782f29ef9f5ab4334e7378d976bef0ae031",
+        "0xbf9811f4bdb8d801db772fb6526f1317a2be55ddf2d392ecec2d42849f2e7ab8",
+        "0x901fb5581d4dd875fc2056c3a73feac9cccef46fa81fb325f7b14135716747fe",
+        "0x5f10e0e2551ddb73ec8021ec8cfb9ca1a50a82f316265e47ae1810f33573c2ef",
+        "0x22b601e5cd6a1ad9b81632b2fa9901e7336064691db7a5d5e2587043c1308c46",
+        "0x43a93c04bbaedaf8d8296ecfc90607de839458cb442ea0ad0f3b97d43bdf13f3",
+        "0xbfb6a87875b9f06df59ce42e9929a6e5b2f33c999ebe847531ba4f01c979e8f1",
+        "0xa1e7e193e5f7d61ee7efb718e0e1ceda676257faca3b1fb03f42c7485a9f6c83",
+        "0x3e1da673bc80c4e98e646dbe2bac77e97ef56ede2ab8f50481545c56fc951902",
+        "0xb912fda53eb12aa14fb59116689963be0e6af9ed9cbe13cffddb060fab3c46ab",
+        "0xd60c953be928708a68d2af6bdab649791edea5676aaffc51352d583741e03d17",
+        "0x4d1c30b4eff45c77d2ac79d4613dbcbdb6640dacfa4903e22faf49e04c1734b0",
+        "0x804f1217f1542b5656f54b2a586f98221076b2c8a8139227bc5ea712b843f9db",
+        "0x592f850d78d0ca6f99ab45bb8bb6a93213d69275d6e9c98c1d1fb28d58f7eb4c",
+        "0x8d5d1187137ff76fe202bb4183ed51c14d88370430c781de015cd951b49e71e6",
+        "0x46e861f856ddd43f2a464852ab46adb96cdcfe844414ea4fc961ae0e97b9ca25",
+        "0x6e2210b36c95a1ee23857440419f8c7346ca9d0a4d5845253abc2f72c2f20048",
+        "0x47bb077e4afb17eaff6373b35c03ac4d0e0ec8cfe51b1c997056c04de80aef00",
+        "0xe041e1dc47d8a5555a029b894dd446f269ddf766595c69c1fa36be5602af813f",
+        "0xdaf11219a6485459012364dc6d1d7487c3973f1d72ef28dd00a50cd44f1aabed",
+        "0x1ec79fae6420f8f69d75935e3a6c329c51a13cec965a85c464901069f192db07",
+        "0xad3bb39aa3967f0a10e0aba44d6f1bdb44c57691ce57ebf9bcc09b12c3058b6a",
+        "0xe74384836b16cd73cd08ab8c77121ab6cea40f167a010313ba2d27eed31284dc",
+        "0x1b31bd6289df383d48263dea54fbad1fc53fd916f1a77f55f2ffba499f2b72de",
+        "0xf0f4bf5d42768e8c813a928a0308b8212f40131fbaa44ffc33d7ee5b639b1d52",
+        "0x9b1995275c8991cdcd45773deb31e69852a1949448efbcf972f2dfeec4a4b210",
+        "0x9649fe97fb5f1d08085febb014c7f0f1b889b6d7a1d0d6f07df5743f5a78efb2",
+        "0xf8707db53f39194a08ce56261b984b7058912731b76ac3428b9afa87f71d88c7",
+        "0xe97eaf13c61705c093ca5834c9e5926d121b0970c6c0ae1299c779c51fe29aeb",
+        "0x79039fc7aa251e9a13a5b72d50ce41facbf382ee1f287690e602ea7c8662a23f",
+        "0x62091b0b50b5ef158cd08d323916a3acd2db71960cfeb8321359a68f7bc0c151",
+        "0xfd229943a42effb4d586e44cbb0da4094dde505bb5e579bd1ddbe234c5e7ee3d",
+        "0x1dc62a896814880723b5d12aef47aeb3bf5bd7dbb0cbced40b38d73ed1a54e17",
+        "0x20c4241fee627f24063bfea54c70db19d84a8cab7ec05224bf2b424edac37df4",
+        "0xc2a50a7c04c6fabba726081e834c268bce4f103e4a13287e31fd8fb5b61e556c",
+        "0x364ad5959e18210f3a4f8402c97079d129db5cbb043e0da8797c3894f88e877e",
+        "0xe74d38282db375474c93c3e75abf03652c331b2485e3d93761a25e41cfd00a9a",
+        "0x70cada3e06d2c5eecc81da50f26b345843638196529e1a78cf229a03cf9b96cd",
+        "0x424eaad1a708d1f276b0cae3df566fdaaf5f4a67a8d53f1c3efbcd9d1f44a8d3",
+        "0x9e3720f5afc3c06ab9a129e2cd7ebfa0ff4664e1b7f59028d0495dc0390804a5",
+        "0x3c88784920f42d6ffdc3ef321c886394c7a6f44ba31872177adde7f0d1774c0c",
+        "0x3b120270826c52de8dec0d1c69894783ee0abc4b97d33f7116ba3a93d3dbfa37",
+        "0xa8d24e3aceea3327adcdd8c0f02c45f738a04f6a374b0de93174d093d93d778e",
+        "0xf8e0b8e154045f6f427efb005a2e3d05011261f146d785701afe450c12abc3d9",
+        "0x6fbb3b04f31f4adc96159c15543bf51d5dc6517d6455077e3bf2add753bc294e",
+        "0x0a0ea7a97e3e25d2280c0c4a94d042d1bfb8a585b5f098635dcf0495f01fa49f",
+        "0x5fbd006c1a3eff124b214441674a36bfa3a6d44a0ee7eeb0c154231da0edc3c4",
+        "0xc3fba648602fb73adbd3956baafa50c4eeb576788da0804eefb7ae6217fca1b5",
+        "0xd51beb0c93a73f4fb7165987ea1a9c33f8b3be70778c081d109c7421d9e02a61",
+        "0x914856fc67a50cf2df1a1033ba76aff978175b1f262e936be63a4334df0fca1f"
+      ]
+    },
+    "finalization": {
+      "transactionHash": "0xb840f14bc18ca542bd3b94650a5e88292b367757da5e3ee225d27b315e354571",
+      "blockNumber": 119619805,
+      "gasUsed": 53297
+    },
+    "rewardAssets": [
+      {
+        "symbol": "WETH",
+        "address": "0x33e4191705c386532ba27cBF171Db86919200B94",
+        "runtimeKeccak256": "0x55f8ac53c64450f01880d8249fc5cb0c69c064e4bcb097ea80a02fff40485a7c",
+        "registrationTransactionHash": "0xdc674f012a25ccf1b7abd94c6853c876582c64777389efd2c49087d4370eee37",
+        "blockNumber": 119619807,
+        "gasUsed": 104959
+      },
+      {
+        "symbol": "STATICS",
+        "address": "0xb6Cc79B2d892798d8e469A1efBF0713Fc2e51f86",
+        "runtimeKeccak256": "0xe548428d65bf2a8cee29a63e8dfaaeda0b4d44294d80f67f7626e1da8b89be69",
+        "registrationTransactionHash": "0x628c946a34f799e254213d708f64c2b3575352ff5ef6dae80a6c2457e142186a",
+        "blockNumber": 119619809,
+        "gasUsed": 87858
+      }
+    ],
+    "finalState": {
+      "bootstrapFinalized": true,
+      "nextOperatorId": 5556,
+      "totalEffectiveWeight": 5550000,
+      "rewardAssetCount": 2
+    }
+  },
+  "consumerEvidence": {
+    "repository": "EqualFiLabs/fiddy",
+    "deploymentManifestCommit": "a13cfb6e59ed1ac6d82979dc1396046280e506ff",
+    "deploymentManifestPath": "deployments/robinhood-testnet/lottery.json",
+    "lifecycleManifestCommit": "b46dfc6ef659ee7612e2219e61806b8d8f08d311",
+    "lifecycleManifestPath": "deployments/robinhood-testnet/lifecycle.json"
+  },
+  "governanceBoundary": {
+    "model": "Single-owner Robinhood Testnet-only admin replacing the production 24-hour Router timelock",
+    "productionApproved": false
+  },
+  "validation": {
+    "adminSourceReproducesRuntimeHash": true,
+    "liveCodeAndStateValidator": "script/ValidateRobinhoodTestnetRouter.s.sol",
+    "explorerSourceVerification": "waived for disposable testnet rehearsal"
+  }
+}
