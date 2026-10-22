@@ -41,5 +41,6 @@ scripts/run-certora.sh all
 
 Completed proof results and precise model bounds are recorded in
 [formal-verification-results.md](../../docs/formal-verification-results.md). Foundry separately provides 10,000-run fuzz
-checks under the security profile, an eight-Operator/three-asset stateful invariant suite, and the pinned full
+checks under the security profile, including the [index-arithmetic tests](../IndexMath.t.sol), an
+eight-Operator/three-asset stateful invariant suite, and the pinned full
 5,555-Operator Robinhood lifecycle fork.

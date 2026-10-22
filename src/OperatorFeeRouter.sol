@@ -230,17 +230,13 @@ contract OperatorFeeRouter is ReentrancyGuard {
         uint256 collectionEnd = LAST_OPERATOR_ID + 1;
         if (exclusiveEnd > collectionEnd) exclusiveEnd = collectionEnd;
 
-        uint256 assetCount = _rewardAssets.length;
+        // Reward ingress is blocked until bootstrap is finalized, so asset checkpoints remain
+        // at their default zero value even when assets are registered before or during bootstrap.
         for (uint256 operatorId = cursor; operatorId < exclusiveEnd; ++operatorId) {
             (address owner, uint16 multiplierBps) = _readCanonical(operatorId);
             uint16 weight = owner == operatorVault ? 0 : multiplierBps;
             operatorState[operatorId] = OperatorState(owner, multiplierBps, weight, true);
             totalEffectiveWeight += weight;
-
-            for (uint256 i; i < assetCount; ++i) {
-                address asset = _rewardAssets[i];
-                operatorAssetState[operatorId][asset].checkpointRay = rewardBook[asset].indexRay;
-            }
 
             emit OperatorInitialized(operatorId, owner, multiplierBps, weight, totalEffectiveWeight);
             ++initializedCount;

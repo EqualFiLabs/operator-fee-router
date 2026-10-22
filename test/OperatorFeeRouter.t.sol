@@ -163,6 +163,68 @@ contract OperatorFeeRouterTest is Test {
         assertTrue(vaultInitialized);
     }
 
+    function test_PreRegisteredAssetsFundAndClaimAfterCompleteBootstrap() public {
+        OperatorFeeRouter fresh =
+            new OperatorFeeRouter(address(collection), address(registry), address(vault), address(timelock));
+        MockERC20 other = new MockERC20("Other Reward", "OTHER");
+        vm.prank(address(timelock));
+        fresh.registerRewardAsset(address(token));
+
+        // Direct donations before bootstrap must not create reward entitlement.
+        token.mint(address(fresh), 11 ether);
+        vm.expectRevert(OperatorFeeRouter.BootstrapNotFinalized.selector);
+        fresh.addRewards(address(token), 225 ether);
+        fresh.bootstrapOperators(100);
+
+        // Registration and canonical synchronization may occur between bootstrap batches.
+        vm.prank(address(timelock));
+        fresh.registerRewardAsset(address(other));
+        other.mint(address(fresh), 7 ether);
+        registry.setMultiplier(1, 12_500);
+        fresh.syncOperator(1);
+        collection.setOwner(2, carol);
+        fresh.syncOperator(2);
+        while (fresh.nextOperatorId() <= fresh.LAST_OPERATOR_ID()) {
+            fresh.bootstrapOperators(100);
+        }
+        vm.expectRevert(OperatorFeeRouter.BootstrapNotFinalized.selector);
+        fresh.addRewards(address(other), 450 ether);
+        fresh.finalizeBootstrap();
+
+        assertEq(fresh.totalEffectiveWeight(), 22_500);
+        assertEq(fresh.pendingOperatorRewards(1, address(token)), 0);
+        assertEq(fresh.pendingOperatorRewards(2, address(other)), 0);
+
+        token.mint(contributor, 225 ether);
+        other.mint(contributor, 450 ether);
+        vm.startPrank(contributor);
+        token.approve(address(fresh), 225 ether);
+        other.approve(address(fresh), 450 ether);
+        fresh.addRewards(address(token), 225 ether);
+        fresh.addRewards(address(other), 450 ether);
+        vm.stopPrank();
+
+        vm.startPrank(alice);
+        assertEq(fresh.claimOperatorRewards(1, address(token), alice), 125 ether);
+        assertEq(fresh.claimOperatorRewards(1, address(other), alice), 250 ether);
+        vm.stopPrank();
+        vm.startPrank(carol);
+        assertEq(fresh.claimOperatorRewards(2, address(token), carol), 100 ether);
+        assertEq(fresh.claimOperatorRewards(2, address(other), carol), 200 ether);
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(alice), 125 ether);
+        assertEq(other.balanceOf(alice), 250 ether);
+        assertEq(token.balanceOf(carol), 100 ether);
+        assertEq(other.balanceOf(carol), 200 ether);
+        assertEq(fresh.pendingOperatorRewards(5_555, address(token)), 0);
+        assertEq(fresh.pendingOperatorRewards(5_555, address(other)), 0);
+        assertEq(token.balanceOf(address(fresh)), 11 ether);
+        assertEq(other.balanceOf(address(fresh)), 7 ether);
+        assertEq(fresh.availableSurplus(address(token)), 11 ether);
+        assertEq(fresh.availableSurplus(address(other)), 7 ether);
+    }
+
     function test_BootstrapRejectsInvalidCountsAndEarlyFinalization() public {
         OperatorFeeRouterHarness fresh =
             new OperatorFeeRouterHarness(address(collection), address(registry), address(vault), address(timelock));

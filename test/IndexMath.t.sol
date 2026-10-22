@@ -2,9 +2,9 @@
 pragma solidity 0.8.33;
 
 import {Test} from "forge-std/Test.sol";
-import {LibIndexMath} from "../../src/libraries/LibIndexMath.sol";
+import {LibIndexMath} from "../src/libraries/LibIndexMath.sol";
 
-contract IndexMathHalmosTest is Test {
+contract IndexMathTest is Test {
     uint256 internal constant RAY = 1e27;
     uint256 internal constant MIN_TOTAL_WEIGHT = 10_000;
     uint256 internal constant MAX_TOTAL_WEIGHT = 69_437_500;
