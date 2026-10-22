@@ -35,12 +35,20 @@ Wrap native revenue before adding it.
 
 ## Robinhood deployment
 
-Deployment is deliberately split from bootstrap:
+Deployment is deliberately split from bootstrap. First, deploy the router and its timelock:
 
 ```bash
 forge script script/DeployOperatorFeeRouter.s.sol:DeployOperatorFeeRouter \
   --rpc-url "$ROBINHOOD_MAINNET" --broadcast
+```
 
+After deployment confirms, verify the `router` address in `deployments/4663/operator-fee-router.json` against the
+deployment receipt. Replace the placeholder below with that address, then initialize the router's records for all
+5,555 existing Operators. The bootstrap script deploys no contracts and finalizes bootstrap to enable reward deposits
+for registered assets.
+
+```bash
+export OPERATOR_FEE_ROUTER="<deployed-router-address>"
 forge script script/BootstrapOperatorFeeRouter.s.sol:BootstrapOperatorFeeRouter \
   --rpc-url "$ROBINHOOD_MAINNET" --broadcast
 ```
