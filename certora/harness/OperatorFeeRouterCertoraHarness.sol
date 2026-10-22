@@ -150,10 +150,4 @@ contract OperatorFeeRouterCertoraHarness is OperatorFeeRouter {
     function formalPendingForfeitureRemainder(uint256 operatorId, address asset) external view returns (uint256) {
         return pendingForfeiture[operatorId][asset].remainderRay;
     }
-
-    function formalStoredWeightSum() external view returns (uint256 sum) {
-        for (uint256 operatorId = 1; operatorId <= 3; ++operatorId) {
-            sum += operatorState[operatorId].effectiveWeight;
-        }
-    }
 }

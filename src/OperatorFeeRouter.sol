@@ -140,9 +140,6 @@ contract OperatorFeeRouter is ReentrancyGuard {
         uint256 denominator,
         uint256 indexRay
     );
-    event RewardIndexCapacityReached(
-        uint256 indexed operatorId, address indexed asset, uint256 amount, uint256 remainderRay
-    );
     event OperatorRewardsClaimed(
         uint256 indexed operatorId, address indexed owner, address indexed asset, address receiver, uint256 amount
     );
@@ -168,7 +165,6 @@ contract OperatorFeeRouter is ReentrancyGuard {
     error ZeroAmount();
     error ZeroEffectiveWeight();
     error RewardLiabilityLimitExceeded(address asset, uint256 currentLiability, uint256 amount, uint256 limit);
-    error RewardIndexCapacityExceeded(address asset);
     error InvalidReceiver(address receiver);
     error InexactTokenTransfer(address asset, uint256 expected, uint256 spent, uint256 received);
     error NotOperatorOwner(uint256 operatorId, address caller, address owner);
@@ -293,7 +289,7 @@ contract OperatorFeeRouter is ReentrancyGuard {
         uint256 balanceAfter = token.balanceOf(address(this));
         _requireExactTransfer(asset, amount, senderBefore, senderAfter, balanceBefore, balanceAfter);
 
-        _increaseIndex(asset, book, amount, 0, denominator);
+        _increaseIndex(book, amount, 0, denominator);
         book.totalAdded += amount;
         book.accountedLiability += amount;
         emit RewardsAdded(msg.sender, asset, amount, denominator, book.indexRay);
@@ -322,7 +318,7 @@ contract OperatorFeeRouter is ReentrancyGuard {
         _settle(operatorId, asset, state.effectiveWeight, book);
         pending.amount = 0;
         pending.remainderRay = 0;
-        _increaseIndex(asset, book, amount, remainderRay, denominator);
+        _increaseIndex(book, amount, remainderRay, denominator);
         operatorAssetState[operatorId][asset].checkpointRay = book.indexRay;
 
         emit PendingForfeitureRedistributed(operatorId, asset, amount, remainderRay, denominator, book.indexRay);
@@ -501,15 +497,10 @@ contract OperatorFeeRouter is ReentrancyGuard {
                 if (denominator == 0) {
                     _queueForfeiture(operatorId, asset, forfeited, forfeitedRemainderRay);
                 } else {
-                    bool redistributed = _tryIncreaseIndex(book, forfeited, forfeitedRemainderRay, denominator);
-                    if (redistributed) {
-                        emit ForfeitedRewardsRedistributed(
-                            operatorId, asset, forfeited, forfeitedRemainderRay, denominator, book.indexRay
-                        );
-                    } else {
-                        _queueForfeiture(operatorId, asset, forfeited, forfeitedRemainderRay);
-                        emit RewardIndexCapacityReached(operatorId, asset, forfeited, forfeitedRemainderRay);
-                    }
+                    _increaseIndex(book, forfeited, forfeitedRemainderRay, denominator);
+                    emit ForfeitedRewardsRedistributed(
+                        operatorId, asset, forfeited, forfeitedRemainderRay, denominator, book.indexRay
+                    );
                 }
             }
 
@@ -556,29 +547,14 @@ contract OperatorFeeRouter is ReentrancyGuard {
         }
     }
 
-    function _increaseIndex(
-        address asset,
-        RewardBook storage book,
-        uint256 amount,
-        uint256 scaledRemainderRay,
-        uint256 denominator
-    ) internal {
-        if (!_tryIncreaseIndex(book, amount, scaledRemainderRay, denominator)) {
-            revert RewardIndexCapacityExceeded(asset);
-        }
-    }
-
-    function _tryIncreaseIndex(RewardBook storage book, uint256 amount, uint256 scaledRemainderRay, uint256 denominator)
+    function _increaseIndex(RewardBook storage book, uint256 amount, uint256 scaledRemainderRay, uint256 denominator)
         internal
-        returns (bool increased)
     {
-        if (amount > MAX_OUTSTANDING_REWARD_UNITS || scaledRemainderRay >= RAY) return false;
+        // Callers supply nonzero weight and normalized rewards bounded by the outstanding liability cap.
         (uint256 delta, uint256 remainder) =
             LibIndexMath.indexDelta(amount, scaledRemainderRay, denominator, book.indexRemainder);
-        if (delta > type(uint256).max - book.indexRay) return false;
         book.indexRay += delta;
         book.indexRemainder = remainder;
-        increased = true;
     }
 
     function _recordForfeiture(RewardBook storage book, uint256 amount, uint256 remainderRay) internal {

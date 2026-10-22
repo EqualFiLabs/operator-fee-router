@@ -12,12 +12,4 @@ contract OperatorFeeRouterHarness is OperatorFeeRouter {
         nextOperatorId = LAST_OPERATOR_ID + 1;
         bootstrapFinalized = true;
     }
-
-    function harnessSetRewardIndex(address asset, uint256 indexRay) external {
-        rewardBook[asset].indexRay = indexRay;
-    }
-
-    function harnessSetOperatorCheckpoint(uint256 operatorId, address asset, uint256 checkpointRay) external {
-        operatorAssetState[operatorId][asset].checkpointRay = checkpointRay;
-    }
 }

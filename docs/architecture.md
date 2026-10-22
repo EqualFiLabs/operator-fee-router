@@ -32,9 +32,8 @@ index-saturation griefing while remaining well above conventional 18-decimal rew
 also reject assets whose fees, rebases, pause, blocklist, or implementation can later change exact transfer behavior;
 disabling deposits cannot repair a token that stops honoring existing claims.
 
-As defense in depth, a forfeiture that cannot fit in an asset's remaining index headroom is queued under the excluded
-Operator instead of reverting the whole synchronization. New deposits and explicit pending flushes revert at that
-boundary, but synchronization and claims for every other asset remain live.
+Deposits, forfeiture redistribution, and pending-forfeiture flushes use the same checked index update. Arithmetic
+overflow reverts the transaction. Forfeitures are queued only when no other effective weight exists.
 
 The collection uses Operator IDs 1 through 5,555. Permissionless bootstrap initializes them in batches of at most 100.
 Reward ingress remains unavailable until every ID has been initialized and bootstrap is finalized.

@@ -581,53 +581,34 @@ contract OperatorFeeRouterTest is Test {
         assertEq(_liability(address(token)), 0);
     }
 
-    function test_IndexCapacityQueuesForfeitureWithoutBlockingOtherAssets() public {
-        MockERC20 other = new MockERC20("Other Reward", "OTHER");
-        _register(address(other));
-        registry.setMultiplier(2, 11_000);
-        router.syncOperator(2);
-        _add(token, 231 ether + 1);
-        _add(other, 231 ether);
+    function test_MaxLiabilityRedistributesAndCanBeFundedAgain() public {
+        uint256 limit = router.MAX_OUTSTANDING_REWARD_UNITS();
+        _add(token, limit);
+        assertEq(_liability(address(token)), limit);
 
-        (uint256 originalIndex, uint256 originalIndexRemainder,,,,,,,) = router.rewardBook(address(token));
-        assertGt(originalIndexRemainder, 0);
-        uint256 saturatedIndex = type(uint256).max;
-        router.harnessSetRewardIndex(address(token), saturatedIndex);
-        router.harnessSetOperatorCheckpoint(1, address(token), saturatedIndex - originalIndex);
-        router.harnessSetOperatorCheckpoint(2, address(token), saturatedIndex - originalIndex);
-
+        // The odd maximum gives both Operators a fractional entitlement before redistribution.
         collection.setOwner(1, carol);
         router.syncOperator(1);
-
-        (uint256 pendingAmount, uint256 pendingRemainder) = router.pendingForfeiture(1, address(token));
-        assertGt(pendingAmount, 0);
-        assertGt(pendingRemainder, 0);
-        (, uint256 retainedIndexRemainder,,,,,,,) = router.rewardBook(address(token));
-        assertEq(retainedIndexRemainder, originalIndexRemainder);
-        assertEq(_liability(address(token)), 231 ether + 1);
-        assertEq(router.syncedOwner(1), carol);
-        assertEq(router.effectiveWeight(1), 10_000);
-        assertEq(router.totalEffectiveWeight(), 21_000);
-
-        vm.expectRevert(abi.encodeWithSelector(OperatorFeeRouter.RewardIndexCapacityExceeded.selector, address(token)));
-        router.flushPendingForfeiture(1, address(token));
-        (uint256 retainedPendingAmount, uint256 retainedPendingRemainder) = router.pendingForfeiture(1, address(token));
-        assertEq(retainedPendingAmount, pendingAmount);
-        assertEq(retainedPendingRemainder, pendingRemainder);
-
-        token.mint(contributor, 1);
-        vm.startPrank(contributor);
-        token.approve(address(router), 1);
-        vm.expectRevert(abi.encodeWithSelector(OperatorFeeRouter.RewardIndexCapacityExceeded.selector, address(token)));
-        router.addRewards(address(token), 1);
-        vm.stopPrank();
-        assertEq(token.balanceOf(contributor), 1);
-
-        assertEq(router.pendingOperatorRewards(1, address(other)), 0);
-        assertEq(router.pendingOperatorRewards(2, address(other)), 231 ether);
-
+        assertEq(router.pendingOperatorRewards(1, address(token)), 0);
+        assertEq(router.pendingOperatorRewards(2, address(token)), limit);
         vm.prank(bob);
-        assertEq(router.claimOperatorRewards(2, address(other), bob), 231 ether);
+        assertEq(router.claimOperatorRewards(2, address(token), bob), limit);
+        assertEq(_liability(address(token)), 0);
+
+        // Reusing the full liability capacity continues the cumulative index normally.
+        _add(token, limit);
+        vm.prank(carol);
+        assertEq(router.claimOperatorRewards(1, address(token), carol), limit / 2);
+        vm.prank(bob);
+        assertEq(router.claimOperatorRewards(2, address(token), bob), limit / 2);
+        assertEq(_liability(address(token)), 1);
+
+        collection.setOwner(1, alice);
+        router.syncOperator(1);
+        vm.prank(bob);
+        assertEq(router.claimOperatorRewards(2, address(token), bob), 1);
+        assertEq(_liability(address(token)), 0);
+        assertEq(token.balanceOf(address(router)), 0);
     }
 
     function test_NewOwnerBeginsOnlyAfterTransferSync() public {
