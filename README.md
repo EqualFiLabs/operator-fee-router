@@ -28,8 +28,8 @@ IERC20(asset).approve(address(router), amount);
 router.addRewards(asset, amount);
 ```
 
-V1 supports exact-transfer, non-rebasing ERC-20 assets. Reward assets should not have mutable transfer fees, rebases,
-pauses, blocklists, or upgrade authority that can change transfer behavior after funding. Each asset is capped at
+V1 supports exact-transfer, non-rebasing ERC-20 assets, including upgradeable tokens. Reward assets should not have mutable
+transfer fees, rebases, pauses, or blocklists. Each asset is capped at
 `type(uint96).max` outstanding base units to keep the cumulative RAY index far from the `uint256` arithmetic boundary.
 Wrap native revenue before adding it.
 

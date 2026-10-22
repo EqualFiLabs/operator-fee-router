@@ -29,7 +29,7 @@ non-exact assets are outside V1's supported asset set.
 Each asset's outstanding liability is capped at `type(uint96).max` base units. At the minimum 10,000 weight denominator,
 this preserves more than `1e25` maximum-sized index increments before the `uint256` index boundary, eliminating practical
 index-saturation griefing while remaining well above conventional 18-decimal reward supplies. Governance onboarding must
-also reject assets whose fees, rebases, pause, blocklist, or implementation can later change exact transfer behavior;
+also reject assets whose fees, rebases, pause, or blocklist can later change exact transfer behavior;
 disabling deposits cannot repair a token that stops honoring existing claims.
 
 Deposits, forfeiture redistribution, and pending-forfeiture flushes use the same checked index update. Arithmetic
