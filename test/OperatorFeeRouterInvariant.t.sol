@@ -264,6 +264,31 @@ contract OperatorFeeRouterInvariantTest is StdInvariant, Test {
         }
     }
 
+    function invariant_AllScaledEntitlementsEqualLiability() public view {
+        uint256 ray = router.RAY();
+        for (uint256 i; i < ASSET_COUNT; ++i) {
+            address asset = address(tokens[i]);
+            (uint256 indexRay, uint256 indexRemainder,,, uint256 liability,,,,) = router.rewardBook(asset);
+            uint256 scaledEntitlements = indexRemainder;
+            for (uint256 operatorId = 1; operatorId <= OPERATOR_COUNT; ++operatorId) {
+                scaledEntitlements += _scaledEntitlement(operatorId, asset, indexRay, ray);
+            }
+            assertEq(scaledEntitlements, liability * ray);
+        }
+    }
+
+    function _scaledEntitlement(uint256 operatorId, address asset, uint256 indexRay, uint256 ray)
+        internal
+        view
+        returns (uint256 value)
+    {
+        (,, uint16 weight,) = router.operatorState(operatorId);
+        (uint256 checkpoint, uint256 remainder, uint256 accrued) = router.operatorAssetState(operatorId, asset);
+        value = accrued * ray + remainder + uint256(weight) * (indexRay - checkpoint);
+        (uint256 pending, uint256 pendingRemainder) = router.pendingForfeiture(operatorId, asset);
+        value += pending * ray + pendingRemainder;
+    }
+
     function invariant_TotalWeightEqualsStoredWeights() public view {
         uint256 summedWeight;
         for (uint256 operatorId = 1; operatorId <= OPERATOR_COUNT; ++operatorId) {

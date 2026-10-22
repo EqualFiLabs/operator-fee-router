@@ -27,10 +27,7 @@ jobs:
       - name: Build contracts
         run: forge build --sizes
 
-      - name: Run tests
-        run: forge test -vv
-
-      - name: Run security profile
+      - name: Run tests with security profile
         run: FOUNDRY_PROFILE=security forge test -vv
 
   formal:

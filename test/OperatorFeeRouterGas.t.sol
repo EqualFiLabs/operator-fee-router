@@ -2,91 +2,130 @@
 pragma solidity 0.8.33;
 
 import {Test} from "forge-std/Test.sol";
-import {OperatorFeeRouter} from "../src/OperatorFeeRouter.sol";
 import {MockActivationRegistry, MockAuthority, MockOperatorCollection, MockVault} from "./mocks/MockOperatorSystem.sol";
 import {MockERC20} from "./mocks/MockTokens.sol";
 import {OperatorFeeRouterHarness} from "./mocks/OperatorFeeRouterHarness.sol";
 
-contract OperatorFeeRouterGasTest is Test {
+abstract contract OperatorFeeRouterGasFixture is Test {
     uint256 internal constant MAX_CHANGED_SYNC_GAS = 10_000_000;
-
     address internal alice = makeAddr("gas-alice");
     address internal bob = makeAddr("gas-bob");
     address internal carol = makeAddr("gas-carol");
     address internal contributor = makeAddr("gas-contributor");
+    MockVault internal vault;
+    MockOperatorCollection internal collection;
+    MockActivationRegistry internal registry;
+    OperatorFeeRouterHarness internal router;
+    MockERC20[] internal tokens;
 
-    function testGas_TransferSyncWith8Assets() public {
-        _measureTransferSync(8);
-    }
+    function _assetCount() internal pure virtual returns (uint256);
 
-    function testGas_TransferSyncWith16Assets() public {
-        _measureTransferSync(16);
-    }
-
-    function testGas_TransferSyncWith32Assets() public {
-        _measureTransferSync(32);
-    }
-
-    function testGas_TransferSyncWith64Assets() public {
-        _measureTransferSync(64);
-    }
-
-    function testGas_ClaimTriggeredTransferWith64Assets() public {
-        (OperatorFeeRouterHarness router, MockOperatorCollection collection,, MockERC20[] memory tokens) =
-            _configuredRouter(64);
-        collection.setOwner(1, carol);
-
-        uint256 gasBefore = gasleft();
-        vm.prank(carol);
-        uint256 claimed = router.claimOperatorRewards(1, address(tokens[0]), carol);
-        uint256 gasUsed = gasBefore - gasleft();
-        emit log_named_uint("claim-triggered transfer sync gas (64 assets)", gasUsed);
-        assertEq(claimed, 0);
-        assertLt(gasUsed, MAX_CHANGED_SYNC_GAS);
-    }
-
-    function _measureTransferSync(uint256 assetCount) internal {
-        (OperatorFeeRouterHarness router, MockOperatorCollection collection,,) = _configuredRouter(assetCount);
-        collection.setOwner(1, carol);
-
-        uint256 gasBefore = gasleft();
-        router.syncOperator(1);
-        uint256 gasUsed = gasBefore - gasleft();
-        emit log_named_uint(string.concat("transfer sync gas (", vm.toString(assetCount), " assets)"), gasUsed);
-        assertLt(gasUsed, MAX_CHANGED_SYNC_GAS);
-    }
-
-    function _configuredRouter(uint256 assetCount)
-        internal
-        returns (
-            OperatorFeeRouterHarness router,
-            MockOperatorCollection collection,
-            MockActivationRegistry registry,
-            MockERC20[] memory tokens
-        )
-    {
-        MockVault vault = new MockVault();
+    function setUp() public virtual {
+        vault = new MockVault();
         MockAuthority timelock = new MockAuthority();
         collection = new MockOperatorCollection(address(vault));
         registry = new MockActivationRegistry(address(collection));
         collection.bindActivationRegistry(address(registry));
         collection.setOwner(1, alice);
         collection.setOwner(2, bob);
+        registry.setMultiplier(2, 12_500);
         router = new OperatorFeeRouterHarness(address(collection), address(registry), address(vault), address(timelock));
         router.bootstrapOperators(2);
         router.harnessFinalizeBootstrap();
 
-        tokens = new MockERC20[](assetCount);
-        for (uint256 i; i < assetCount; ++i) {
+        for (uint256 i; i < _assetCount(); ++i) {
             MockERC20 token = new MockERC20("Gas Reward", "GAS");
-            tokens[i] = token;
+            tokens.push(token);
             vm.prank(address(timelock));
             router.registerRewardAsset(address(token));
-            token.mint(contributor, 2 ether);
+            // Non-exact division exercises fractional settlement and redistribution storage writes.
+            uint256 amount = 2 ether + 1;
+            token.mint(contributor, amount);
             vm.startPrank(contributor);
-            token.approve(address(router), 2 ether);
-            router.addRewards(address(token), 2 ether);
+            token.approve(address(router), amount);
+            router.addRewards(address(token), amount);
             vm.stopPrank();
+        }
+        collection.setOwner(1, carol);
+    }
+
+    function _coolDependencies() internal {
+        vm.cool(address(registry));
+        vm.cool(address(collection));
+        vm.cool(address(router));
+    }
+}
+
+abstract contract OperatorFeeRouterTransferGasFixture is OperatorFeeRouterGasFixture {
+    function testGas_ColdFractionalTransferSync() public {
+        _coolDependencies();
+        uint256 gasBefore = gasleft();
+        router.syncOperator(1);
+        uint256 gasUsed = gasBefore - gasleft();
+        emit log_named_uint(
+            string.concat("cold fractional sync gas (", vm.toString(_assetCount()), " assets)"), gasUsed
+        );
+        assertLt(gasUsed, MAX_CHANGED_SYNC_GAS);
+    }
+}
+
+contract OperatorFeeRouter8AssetGasTest is OperatorFeeRouterTransferGasFixture {
+    function _assetCount() internal pure override returns (uint256) {
+        return 8;
+    }
+}
+
+contract OperatorFeeRouter16AssetGasTest is OperatorFeeRouterTransferGasFixture {
+    function _assetCount() internal pure override returns (uint256) {
+        return 16;
+    }
+}
+
+contract OperatorFeeRouter32AssetGasTest is OperatorFeeRouterTransferGasFixture {
+    function _assetCount() internal pure override returns (uint256) {
+        return 32;
+    }
+}
+
+contract OperatorFeeRouterGasTest is OperatorFeeRouterTransferGasFixture {
+    function _assetCount() internal pure override returns (uint256) {
+        return 64;
+    }
+
+    function testGas_ColdClaimTriggeredTransferWith64Assets() public {
+        address asset = address(tokens[0]);
+        _coolDependencies();
+        vm.prank(carol);
+        uint256 gasBefore = gasleft();
+        uint256 claimed = router.claimOperatorRewards(1, asset, carol);
+        uint256 gasUsed = gasBefore - gasleft();
+        emit log_named_uint("cold claim-triggered transfer sync gas (64 assets)", gasUsed);
+        assertEq(claimed, 0);
+        assertLt(gasUsed, MAX_CHANGED_SYNC_GAS);
+    }
+}
+
+contract OperatorFeeRouterQueuedGasTest is OperatorFeeRouterGasFixture {
+    function _assetCount() internal pure override returns (uint256) {
+        return 64;
+    }
+
+    function setUp() public override {
+        super.setUp();
+        collection.setOwner(2, address(vault));
+        router.syncOperator(2);
+    }
+
+    function testGas_ColdQueuedForfeitureWith64Assets() public {
+        _coolDependencies();
+        uint256 gasBefore = gasleft();
+        router.syncOperator(1);
+        uint256 gasUsed = gasBefore - gasleft();
+        emit log_named_uint("cold queued forfeiture sync gas (64 assets)", gasUsed);
+        assertLt(gasUsed, MAX_CHANGED_SYNC_GAS);
+        for (uint256 i; i < tokens.length; ++i) {
+            (uint256 amount,) = router.pendingForfeiture(1, address(tokens[i]));
+            assertGt(amount, 0);
         }
     }
 }

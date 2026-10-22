@@ -291,9 +291,7 @@ contract OperatorFeeRouter is ReentrancyGuard {
         token.safeTransferFrom(msg.sender, address(this), amount);
         uint256 senderAfter = token.balanceOf(msg.sender);
         uint256 balanceAfter = token.balanceOf(address(this));
-        uint256 spent = senderBefore >= senderAfter ? senderBefore - senderAfter : 0;
-        uint256 received = balanceAfter >= balanceBefore ? balanceAfter - balanceBefore : 0;
-        if (spent != amount || received != amount) revert InexactTokenTransfer(asset, amount, spent, received);
+        _requireExactTransfer(asset, amount, senderBefore, senderAfter, balanceBefore, balanceAfter);
 
         _increaseIndex(asset, book, amount, 0, denominator);
         book.totalAdded += amount;
@@ -387,9 +385,9 @@ contract OperatorFeeRouter is ReentrancyGuard {
         uint256 indexDeltaRay = book.indexRay - assetState.checkpointRay;
         if (indexDeltaRay == 0 || state.effectiveWeight == 0) return amount;
 
-        amount += Math.mulDiv(state.effectiveWeight, indexDeltaRay, RAY);
-        uint256 remainderRay = mulmod(state.effectiveWeight, indexDeltaRay, RAY);
-        if (remainderRay >= RAY - assetState.settlementRemainderRay) ++amount;
+        (uint256 newlyAccrued,) =
+            _settlementDelta(state.effectiveWeight, indexDeltaRay, assetState.settlementRemainderRay);
+        amount += newlyAccrued;
     }
 
     function effectiveWeight(uint256 operatorId) external view returns (uint256 weight) {
@@ -536,19 +534,26 @@ contract OperatorFeeRouter is ReentrancyGuard {
         assetState.checkpointRay = indexRay;
         if (weight == 0) return;
 
-        uint256 newlyAccrued = Math.mulDiv(weight, indexDeltaRay, RAY);
-        uint256 remainderRay = mulmod(weight, indexDeltaRay, RAY);
-        uint256 priorRemainderRay = assetState.settlementRemainderRay;
+        (uint256 newlyAccrued, uint256 remainderRay) =
+            _settlementDelta(weight, indexDeltaRay, assetState.settlementRemainderRay);
+        assetState.accrued += newlyAccrued;
+        assetState.settlementRemainderRay = remainderRay;
+        emit OperatorRewardsSettled(operatorId, asset, newlyAccrued, assetState.accrued, remainderRay);
+    }
+
+    function _settlementDelta(uint16 weight, uint256 indexDeltaRay, uint256 priorRemainderRay)
+        internal
+        pure
+        returns (uint256 newlyAccrued, uint256 remainderRay)
+    {
+        newlyAccrued = Math.mulDiv(weight, indexDeltaRay, RAY);
+        remainderRay = mulmod(weight, indexDeltaRay, RAY);
         if (remainderRay >= RAY - priorRemainderRay) {
             ++newlyAccrued;
             remainderRay -= RAY - priorRemainderRay;
         } else {
             remainderRay += priorRemainderRay;
         }
-
-        assetState.accrued += newlyAccrued;
-        assetState.settlementRemainderRay = remainderRay;
-        emit OperatorRewardsSettled(operatorId, asset, newlyAccrued, assetState.accrued, remainderRay);
     }
 
     function _increaseIndex(
@@ -623,6 +628,17 @@ contract OperatorFeeRouter is ReentrancyGuard {
         token.safeTransfer(receiver, amount);
         uint256 senderAfter = token.balanceOf(address(this));
         uint256 receiverAfter = token.balanceOf(receiver);
+        _requireExactTransfer(asset, amount, senderBefore, senderAfter, receiverBefore, receiverAfter);
+    }
+
+    function _requireExactTransfer(
+        address asset,
+        uint256 amount,
+        uint256 senderBefore,
+        uint256 senderAfter,
+        uint256 receiverBefore,
+        uint256 receiverAfter
+    ) internal pure {
         uint256 spent = senderBefore >= senderAfter ? senderBefore - senderAfter : 0;
         uint256 received = receiverAfter >= receiverBefore ? receiverAfter - receiverBefore : 0;
         if (spent != amount || received != amount) {
