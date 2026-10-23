@@ -175,7 +175,7 @@
   },
   "validation": {
     "adminSourceReproducesRuntimeHash": true,
-    "liveCodeAndStateValidator": "script/ValidateRobinhoodTestnetRouter.s.sol",
+    "liveCodeAndStateValidator": "script/validate-robinhood-testnet-router.sh",
     "explorerSourceVerification": "waived for disposable testnet rehearsal"
   }
 }

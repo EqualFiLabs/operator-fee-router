@@ -54,24 +54,17 @@ both WETH and STATICS reward books. Those transaction-level results are pinned i
 
 ## Validation
 
-Load the intended Robinhood Testnet RPC without printing it, then run the read-only state and
-bytecode validator:
-
-```bash
-forge script script/ValidateRobinhoodTestnetRouter.s.sol:ValidateRobinhoodTestnetRouter \
-  --rpc-url "$ROBINHOOD_TESTNET"
-```
-
-The validator checks the chain ID, every pinned runtime hash, admin ownership and binding, Router
-constructor dependencies, completed bootstrap, effective weight, and both reward assets. It does
-not broadcast a transaction.
-
-The companion receipt validator checks the Router-owned manifest, every recorded successful
-transaction, the bootstrap block range, and the same live code and state:
+Load the intended Robinhood Testnet RPC without printing it, then run the read-only manifest
+validator (requires `cast` and `jq`):
 
 ```bash
 script/validate-robinhood-testnet-router.sh
 ```
+
+The validator reads expected values from the Router-owned manifest. It checks the chain ID, every
+pinned runtime hash, admin ownership and binding, Router constructor dependencies, completed
+bootstrap, effective weight, reward asset count, and both reward assets. It also checks every
+recorded successful transaction and the bootstrap block range. It does not broadcast a transaction.
 
 Explorer source verification was intentionally waived because this is a throwaway testnet
 deployment. Runtime hashes, receipts, source/toolchain pins, and live-state validation remain the

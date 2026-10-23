@@ -401,9 +401,7 @@ contract OperatorFeeRouter is ReentrancyGuard {
         _validateReceiver(receiver);
         if (amount == 0) revert ZeroAmount();
 
-        uint256 balance = IERC20(asset).balanceOf(address(this));
-        uint256 liability = rewardBook[asset].accountedLiability;
-        uint256 surplus = balance > liability ? balance - liability : 0;
+        uint256 surplus = availableSurplus(asset);
         if (amount > surplus) revert InsufficientSurplus(asset, amount, surplus);
 
         _pushExact(asset, receiver, amount);
@@ -411,10 +409,8 @@ contract OperatorFeeRouter is ReentrancyGuard {
     }
 
     function pendingOperatorRewards(uint256 operatorId, address asset) external view returns (uint256 amount) {
-        OperatorState storage state = operatorState[operatorId];
-        if (!state.initialized) revert OperatorNotInitialized(operatorId);
-        RewardBook storage book = rewardBook[asset];
-        if (!book.registered) revert RewardAssetNotRegistered(asset);
+        OperatorState storage state = _requireInitialized(operatorId);
+        RewardBook storage book = _registeredRewardBook(asset);
 
         (address currentOwner, uint16 currentMultiplierBps) = _readCanonical(operatorId);
         if (currentOwner != state.syncedOwner || currentMultiplierBps < state.syncedMultiplierBps) return 0;
@@ -457,7 +453,7 @@ contract OperatorFeeRouter is ReentrancyGuard {
         return _rewardAssets[index];
     }
 
-    function availableSurplus(address asset) external view returns (uint256) {
+    function availableSurplus(address asset) public view returns (uint256) {
         uint256 balance = IERC20(asset).balanceOf(address(this));
         uint256 liability = rewardBook[asset].accountedLiability;
         return balance > liability ? balance - liability : 0;
