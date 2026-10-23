@@ -4,6 +4,7 @@ pragma solidity 0.8.33;
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OperatorFeeRouter} from "../src/OperatorFeeRouter.sol";
+import {OperatorFeeRouterTimelock} from "../src/OperatorFeeRouterTimelock.sol";
 import {IActivationRegistry} from "../src/interfaces/IActivationRegistry.sol";
 import {IOperatorCollection} from "../src/interfaces/IOperatorCollection.sol";
 import {MockAuthority} from "./mocks/MockOperatorSystem.sol";
@@ -13,6 +14,10 @@ interface IForkOperatorCollection is IOperatorCollection {
     function getTransferValidator() external view returns (address validator);
     function locked(uint256 operatorId) external view returns (bool);
     function transferFrom(address from, address to, uint256 operatorId) external;
+}
+
+interface IForkWETH is IERC20 {
+    function deposit() external payable;
 }
 
 interface IForkActivationRegistry is IActivationRegistry {
@@ -122,6 +127,67 @@ contract OperatorFeeRouterForkTest is Test {
         _addRewards(reward, initialTotalWeight);
         (uint256 activatedTotalWeight, address operatorTwoOwner) = _activateOperatorTwo(reward, initialTotalWeight);
         _transferOperatorOneAndReconcile(reward, initialTotalWeight, activatedTotalWeight, operatorTwoOwner);
+    }
+
+    function testFork_WethClaimOnlyDeregistrationAndRecoveryWhenExplicitlyEnabled() public {
+        if (!vm.envOr("RUN_FULL_ROUTER_FORK", false)) {
+            vm.skip(true, "set RUN_FULL_ROUTER_FORK=true for the release-gate lifecycle");
+        }
+        address proposer = makeAddr("fork-proposer");
+        address[] memory proposers = new address[](1);
+        proposers[0] = proposer;
+        address[] memory executors = new address[](1);
+        executors[0] = address(0);
+        OperatorFeeRouterTimelock governance = new OperatorFeeRouterTimelock(proposers, executors);
+        router = new OperatorFeeRouter(OPERATOR_COLLECTION, ACTIVATION_REGISTRY, OPERATOR_VAULT, address(governance));
+        uint256 totalWeight = _bootstrapAndAssertEveryOperator();
+        IForkWETH weth = IForkWETH(0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73);
+        vm.prank(proposer);
+        router.registerRewardAsset(address(weth));
+        uint256 amount = totalWeight * 1e9;
+        vm.deal(address(this), amount);
+        weth.deposit{value: amount}();
+        weth.approve(address(router), amount);
+        router.addRewards(address(weth), amount);
+        vm.prank(proposer);
+        router.setRewardAssetEnabled(address(weth), false);
+        vm.expectRevert(abi.encodeWithSelector(OperatorFeeRouter.RewardAssetDisabled.selector, address(weth)));
+        router.addRewards(address(weth), 1);
+
+        bytes memory data = abi.encodeCall(router.deregisterRewardAsset, (address(weth)));
+        bytes32 salt = keccak256("fork-expiry");
+        vm.prank(proposer);
+        governance.schedule(address(router), 0, data, bytes32(0), salt, 24 hours);
+        vm.expectRevert();
+        governance.execute(address(router), 0, data, bytes32(0), salt);
+        address owner = collection.ownerOf(1);
+        uint256 claim = router.pendingOperatorRewards(1, address(weth));
+        assertGt(claim, 0);
+        uint256 ownerBalance = weth.balanceOf(owner);
+        vm.prank(owner);
+        assertEq(router.claimOperatorRewards(1, address(weth), owner), claim);
+        assertEq(weth.balanceOf(owner), ownerBalance + claim);
+        vm.warp(block.timestamp + 24 hours);
+        governance.execute(address(router), 0, data, bytes32(0), salt);
+        uint256 expired = amount - claim;
+        assertEq(router.expiredRewards(address(weth)), expired);
+        assertEq(router.availableSurplus(address(weth)), expired);
+        assertEq(router.rewardAssetCount(), 0);
+        assertTrue(router.isRewardAssetDeregistered(address(weth)));
+        vm.expectRevert(abi.encodeWithSelector(OperatorFeeRouter.RewardAssetNotRegistered.selector, address(weth)));
+        vm.prank(owner);
+        router.claimOperatorRewards(1, address(weth), owner);
+
+        data = abi.encodeCall(router.recoverSurplus, (address(weth), proposer, expired));
+        vm.prank(proposer);
+        governance.schedule(address(router), 0, data, bytes32(0), salt, 24 hours);
+        vm.expectRevert();
+        governance.execute(address(router), 0, data, bytes32(0), salt);
+        vm.warp(block.timestamp + 24 hours);
+        governance.execute(address(router), 0, data, bytes32(0), salt);
+        assertEq(weth.balanceOf(address(router)), 0);
+        assertEq(weth.balanceOf(proposer), expired);
+        assertEq(_bookSnapshot(address(weth)).liability, 0);
     }
 
     function _assertLifecyclePreconditions() internal view {

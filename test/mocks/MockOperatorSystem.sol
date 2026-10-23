@@ -3,7 +3,11 @@ pragma solidity 0.8.33;
 
 contract MockVault {}
 
-contract MockAuthority {}
+contract MockAuthority {
+    function hasRole(bytes32, address) external pure returns (bool) {
+        return false;
+    }
+}
 
 contract MockOperatorCollection {
     uint256 public constant COLLECTION_SIZE = 5_555;

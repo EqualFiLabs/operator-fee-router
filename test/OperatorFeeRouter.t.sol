@@ -282,7 +282,7 @@ contract OperatorFeeRouterTest is Test {
         assertEq(token.balanceOf(address(router)), limit);
     }
 
-    function test_OnlyTimelockCanConfigureAssets() public {
+    function test_UnauthorizedCallersCannotConfigureAssets() public {
         MockERC20 other = new MockERC20("Other", "OTHER");
         vm.expectRevert(abi.encodeWithSelector(OperatorFeeRouter.Unauthorized.selector, address(this)));
         router.registerRewardAsset(address(other));
@@ -328,6 +328,44 @@ contract OperatorFeeRouterTest is Test {
         router.pendingOperatorRewards(1, address(unregistered));
     }
 
+    function testFuzz_RegistersSupportedDecimalsAndDistributesRawUnits(uint8 rawDecimals) public {
+        uint8 decimals = uint8(bound(rawDecimals, 0, 18));
+        MockERC20 reward = new MockERC20("Precision", "PREC");
+        vm.mockCall(address(reward), abi.encodeWithSignature("decimals()"), abi.encode(decimals));
+        _register(address(reward));
+        _add(reward, 2 * 10 ** uint256(decimals));
+        vm.prank(alice);
+        assertEq(router.claimOperatorRewards(1, address(reward), alice), 10 ** uint256(decimals));
+    }
+
+    function testFuzz_RegistrationRejectsDecimalsAbove18(uint8 rawDecimals) public {
+        uint8 decimals = uint8(bound(rawDecimals, 19, 255));
+        MockERC20 reward = new MockERC20("Precision", "PREC");
+        vm.mockCall(address(reward), abi.encodeWithSignature("decimals()"), abi.encode(decimals));
+        uint256 count = router.rewardAssetCount();
+        vm.expectRevert(
+            abi.encodeWithSelector(OperatorFeeRouter.UnsupportedRewardAssetDecimals.selector, address(reward), decimals)
+        );
+        vm.prank(address(timelock));
+        router.registerRewardAsset(address(reward));
+        assertFalse(router.isRewardAsset(address(reward)));
+        assertEq(router.rewardAssetCount(), count);
+    }
+
+    function test_RegistrationRequiresValidDecimalsMetadata() public {
+        address asset = makeAddr("missing metadata");
+        vm.etch(asset, hex"00");
+        vm.expectRevert();
+        vm.prank(address(timelock));
+        router.registerRewardAsset(asset);
+
+        vm.mockCall(asset, abi.encodeWithSignature("decimals()"), abi.encode(uint256(256)));
+        vm.expectRevert();
+        vm.prank(address(timelock));
+        router.registerRewardAsset(asset);
+        assertFalse(router.isRewardAsset(asset));
+    }
+
     function test_AddRewardsRejectsZeroAmountAndZeroEffectiveWeight() public {
         vm.expectRevert(OperatorFeeRouter.ZeroAmount.selector);
         router.addRewards(address(token), 0);
@@ -350,6 +388,7 @@ contract OperatorFeeRouterTest is Test {
         for (uint160 i = 1; i < 64; ++i) {
             address asset = address(uint160(10_000 + i));
             vm.etch(asset, hex"00");
+            vm.mockCall(asset, abi.encodeWithSignature("decimals()"), abi.encode(uint8(18)));
             _register(asset);
         }
         assertEq(router.rewardAssetCount(), 64);

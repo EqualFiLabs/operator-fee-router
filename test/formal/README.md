@@ -26,6 +26,9 @@ The Certora harness inherits the production `OperatorFeeRouter`; it does not rep
 logic. The model uses three Operators and two linked exact-transfer reward tokens. Only bootstrap sizing and the
 canonical/token dependencies are substituted. The operational accounting invariants assume a finalized bootstrap.
 SafeERC20's assembly call is rerouted to the linked exact-token implementation; allowance policy is outside this model.
+The authority model also exposes the proposer-role query used by direct asset management. Accounting now tracks expired
+liabilities separately and specifies permanent deregistration without token movement. These revised Certora rules are
+not covered by the historical hosted proof results.
 Both configurations use Solidity 0.8.33, Cancun, optimizer 200, sufficient loop unwinding for the bounded scene,
 `optimistic_loop=false`, and basic rule-sanity checks.
 

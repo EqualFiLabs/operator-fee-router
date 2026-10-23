@@ -2,9 +2,11 @@
 pragma solidity 0.8.33;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IActivationRegistry} from "./interfaces/IActivationRegistry.sol";
 import {IOperatorCollection} from "./interfaces/IOperatorCollection.sol";
 import {LibIndexMath} from "./libraries/LibIndexMath.sol";
@@ -19,10 +21,12 @@ contract OperatorFeeRouter is ReentrancyGuard {
     uint256 public constant LAST_OPERATOR_ID = 5_555;
     uint256 public constant MAX_BOOTSTRAP_BATCH = 100;
     uint256 public constant MAX_REWARD_ASSETS = 64;
+    uint8 public constant MAX_REWARD_ASSET_DECIMALS = 18;
     /// @dev Per-asset base-unit bound that leaves more than 1e25 maximum-sized index increments of uint256 headroom.
     uint256 public constant MAX_OUTSTANDING_REWARD_UNITS = type(uint96).max;
     uint16 public constant MIN_MULTIPLIER_BPS = 10_000;
     uint16 public constant MAX_MULTIPLIER_BPS = 12_500;
+    bytes32 private constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
 
     enum SyncKind {
         Noop,
@@ -73,11 +77,14 @@ contract OperatorFeeRouter is ReentrancyGuard {
     mapping(address asset => RewardBook book) public rewardBook;
     mapping(uint256 operatorId => mapping(address asset => OperatorAssetState state)) public operatorAssetState;
     mapping(uint256 operatorId => mapping(address asset => PendingForfeiture pending)) public pendingForfeiture;
+    mapping(address asset => bool deregistered) public isRewardAssetDeregistered;
+    mapping(address asset => uint256 amount) public expiredRewards;
 
     address[] private _rewardAssets;
 
     event RewardAssetRegistered(address indexed asset);
     event RewardAssetEnabled(address indexed asset, bool enabled);
+    event RewardAssetDeregistered(address indexed asset, uint256 expiredAmount);
     event RewardsAdded(
         address indexed contributor,
         address indexed asset,
@@ -161,7 +168,10 @@ contract OperatorFeeRouter is ReentrancyGuard {
     error RewardAssetAlreadyRegistered(address asset);
     error RewardAssetNotRegistered(address asset);
     error RewardAssetDisabled(address asset);
+    error RewardAssetPermanentlyDeregistered(address asset);
+    error RewardAssetNotClaimOnly(address asset);
     error RewardAssetLimitReached();
+    error UnsupportedRewardAssetDecimals(address asset, uint8 decimals);
     error ZeroAmount();
     error ZeroEffectiveWeight();
     error RewardLiabilityLimitExceeded(address asset, uint256 currentLiability, uint256 amount, uint256 limit);
@@ -177,6 +187,13 @@ contract OperatorFeeRouter is ReentrancyGuard {
 
     modifier onlyTimelock() {
         if (msg.sender != routerTimelock) revert Unauthorized(msg.sender);
+        _;
+    }
+
+    modifier onlyAssetManager() {
+        if (msg.sender != routerTimelock && !IAccessControl(routerTimelock).hasRole(PROPOSER_ROLE, msg.sender)) {
+            revert Unauthorized(msg.sender);
+        }
         _;
     }
 
@@ -249,11 +266,14 @@ contract OperatorFeeRouter is ReentrancyGuard {
         emit BootstrapFinalized(totalEffectiveWeight);
     }
 
-    function registerRewardAsset(address asset) external onlyTimelock {
+    function registerRewardAsset(address asset) external onlyAssetManager {
+        if (isRewardAssetDeregistered[asset]) revert RewardAssetPermanentlyDeregistered(asset);
         _requireContract(asset);
         RewardBook storage book = rewardBook[asset];
         if (book.registered) revert RewardAssetAlreadyRegistered(asset);
         if (_rewardAssets.length == MAX_REWARD_ASSETS) revert RewardAssetLimitReached();
+        uint8 decimals = IERC20Metadata(asset).decimals();
+        if (decimals > MAX_REWARD_ASSET_DECIMALS) revert UnsupportedRewardAssetDecimals(asset, decimals);
 
         book.registered = true;
         book.depositsEnabled = true;
@@ -262,11 +282,34 @@ contract OperatorFeeRouter is ReentrancyGuard {
         emit RewardAssetEnabled(asset, true);
     }
 
-    function setRewardAssetEnabled(address asset, bool enabled) external onlyTimelock {
+    function setRewardAssetEnabled(address asset, bool enabled) external onlyAssetManager {
         RewardBook storage book = _registeredRewardBook(asset);
         if (book.depositsEnabled == enabled) return;
         book.depositsEnabled = enabled;
         emit RewardAssetEnabled(asset, enabled);
+    }
+
+    /// @notice Permanently expires unclaimed rewards for a claim-only asset through the timelock.
+    /// @dev Historical per-Operator records remain in storage but can never become claimable again.
+    function deregisterRewardAsset(address asset) external onlyTimelock nonReentrant {
+        RewardBook storage book = _registeredRewardBook(asset);
+        if (book.depositsEnabled) revert RewardAssetNotClaimOnly(asset);
+
+        uint256 expiredAmount = book.accountedLiability;
+        expiredRewards[asset] = expiredAmount;
+        book.accountedLiability = 0;
+        book.registered = false;
+        isRewardAssetDeregistered[asset] = true;
+
+        uint256 assetCount = _rewardAssets.length;
+        for (uint256 i; i < assetCount; ++i) {
+            if (_rewardAssets[i] == asset) {
+                _rewardAssets[i] = _rewardAssets[assetCount - 1];
+                _rewardAssets.pop();
+                break;
+            }
+        }
+        emit RewardAssetDeregistered(asset, expiredAmount);
     }
 
     function addRewards(address asset, uint256 amount) external nonReentrant {

@@ -25,6 +25,7 @@ contract OperatorFeeRouterHandler is Test {
     mapping(address asset => uint256 amount) public ghostClaimed;
     mapping(address asset => uint256 amount) public ghostDonated;
     mapping(address asset => uint256 amount) public ghostRecovered;
+    mapping(address asset => uint256 amount) public ghostExpired;
 
     constructor(
         OperatorFeeRouterHarness router_,
@@ -108,7 +109,7 @@ contract OperatorFeeRouterHandler is Test {
         uint256 operatorId = _operatorId(rawOperatorId);
         address asset = address(_token(rawAsset));
         address currentOwner = collection.ownerOf(operatorId);
-        if (currentOwner == vault) return;
+        if (currentOwner == vault || !router.isRewardAsset(asset)) return;
 
         (address previousOwner, uint16 previousMultiplier,,) = router.operatorState(operatorId);
         uint16 currentMultiplier = registry.multiplierBps(operatorId);
@@ -141,6 +142,7 @@ contract OperatorFeeRouterHandler is Test {
     function flush(uint256 rawOperatorId, uint256 rawAsset) external {
         uint256 operatorId = _operatorId(rawOperatorId);
         address asset = address(_token(rawAsset));
+        if (!router.isRewardAsset(asset)) return;
         (uint256 pendingAmount, uint256 pendingRemainder) = router.pendingForfeiture(operatorId, asset);
         if (pendingAmount == 0 && pendingRemainder == 0) return;
 
@@ -151,8 +153,18 @@ contract OperatorFeeRouterHandler is Test {
 
     function setAssetEnabled(uint256 rawAsset, bool enabled) external {
         address asset = address(_token(rawAsset));
+        if (!router.isRewardAsset(asset)) return;
         vm.prank(timelock);
         router.setRewardAssetEnabled(asset, enabled);
+    }
+
+    function deregister(uint256 rawAsset) external {
+        address asset = address(_token(rawAsset));
+        if (!router.isRewardAsset(asset) || router.rewardAssetEnabled(asset)) return;
+        (,,,, uint256 liability,,,,) = router.rewardBook(asset);
+        vm.prank(timelock);
+        router.deregisterRewardAsset(asset);
+        ghostExpired[asset] += liability;
     }
 
     function _operatorId(uint256 rawOperatorId) internal pure returns (uint256) {
@@ -194,6 +206,7 @@ contract OperatorFeeRouterHandler is Test {
     function _assertTransferCleared(uint256 operatorId) internal view {
         for (uint256 i; i < ASSET_COUNT; ++i) {
             address asset = address(_tokens[i]);
+            if (!router.isRewardAsset(asset)) continue;
             (uint256 indexRay,,,,,,,,) = router.rewardBook(asset);
             (uint256 checkpointRay, uint256 settlementRemainderRay, uint256 accrued) =
                 router.operatorAssetState(operatorId, asset);
@@ -253,14 +266,18 @@ contract OperatorFeeRouterInvariantTest is StdInvariant, Test {
 
             assertEq(totalAdded, handler.ghostAdded(asset));
             assertEq(totalClaimed, handler.ghostClaimed(asset));
-            assertEq(liability, totalAdded - totalClaimed);
+            assertEq(router.expiredRewards(asset), handler.ghostExpired(asset));
+            assertEq(liability, totalAdded - totalClaimed - handler.ghostExpired(asset));
             assertGe(balance, liability);
             assertEq(router.availableSurplus(asset), balance - liability);
             assertEq(
                 balance + handler.ghostClaimed(asset) + handler.ghostRecovered(asset),
                 handler.ghostAdded(asset) + handler.ghostDonated(asset)
             );
-            assertEq(router.availableSurplus(asset), handler.ghostDonated(asset) - handler.ghostRecovered(asset));
+            assertEq(
+                router.availableSurplus(asset),
+                handler.ghostDonated(asset) + handler.ghostExpired(asset) - handler.ghostRecovered(asset)
+            );
         }
     }
 
@@ -269,6 +286,10 @@ contract OperatorFeeRouterInvariantTest is StdInvariant, Test {
         for (uint256 i; i < ASSET_COUNT; ++i) {
             address asset = address(tokens[i]);
             (uint256 indexRay, uint256 indexRemainder,,, uint256 liability,,,,) = router.rewardBook(asset);
+            if (router.isRewardAssetDeregistered(asset)) {
+                assertEq(liability, 0);
+                continue;
+            }
             uint256 scaledEntitlements = indexRemainder;
             for (uint256 operatorId = 1; operatorId <= OPERATOR_COUNT; ++operatorId) {
                 scaledEntitlements += _scaledEntitlement(operatorId, asset, indexRay, ray);
@@ -317,13 +338,28 @@ contract OperatorFeeRouterInvariantTest is StdInvariant, Test {
         }
     }
 
-    function invariant_AssetRegistryIsFixedAndIsolated() public view {
-        assertEq(router.rewardAssetCount(), ASSET_COUNT);
+    function invariant_AssetRegistryTracksLiveAssets() public view {
+        uint256 liveCount;
         for (uint256 i; i < ASSET_COUNT; ++i) {
             address asset = address(tokens[i]);
-            assertEq(router.rewardAssetAt(i), asset);
-            assertTrue(router.isRewardAsset(asset));
+            bool retired = router.isRewardAssetDeregistered(asset);
+            assertEq(router.isRewardAsset(asset), !retired);
+            if (retired) assertFalse(router.rewardAssetEnabled(asset));
+            else ++liveCount;
             assertEq(address(handler.tokenAt(i)), asset);
+        }
+        assertEq(router.rewardAssetCount(), liveCount);
+        for (uint256 i; i < liveCount; ++i) {
+            address asset = router.rewardAssetAt(i);
+            assertTrue(router.isRewardAsset(asset));
+            bool known;
+            for (uint256 j; j < ASSET_COUNT; ++j) {
+                if (asset == address(tokens[j])) known = true;
+            }
+            assertTrue(known);
+            for (uint256 j; j < i; ++j) {
+                assertTrue(asset != router.rewardAssetAt(j));
+            }
         }
     }
 }

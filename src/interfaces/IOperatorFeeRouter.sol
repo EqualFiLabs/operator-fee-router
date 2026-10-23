@@ -27,6 +27,10 @@ interface IOperatorFeeRouter {
 
     function rewardAssetEnabled(address asset) external view returns (bool);
 
+    function isRewardAssetDeregistered(address asset) external view returns (bool);
+
+    function expiredRewards(address asset) external view returns (uint256);
+
     function rewardAssetCount() external view returns (uint256);
 
     function rewardAssetAt(uint256 index) external view returns (address);

@@ -14,6 +14,14 @@ ghost mapping(address => mathint) liabilityGhost {
     init_state axiom forall address asset. liabilityGhost[asset] == 0;
 }
 
+ghost mapping(address => mathint) expiredGhost {
+    init_state axiom forall address asset. expiredGhost[asset] == 0;
+}
+
+hook Sstore expiredRewards[KEY address asset] uint256 newValue (uint256 oldValue) {
+    expiredGhost[asset] = expiredGhost[asset] + to_mathint(newValue) - to_mathint(oldValue);
+}
+
 hook Sstore rewardBook[KEY address asset].totalAdded uint256 newValue (uint256 oldValue) {
     addedGhost[asset] = addedGhost[asset] + to_mathint(newValue) - to_mathint(oldValue);
 }
@@ -36,6 +44,8 @@ methods {
     function rewardAssetCount() external returns (uint256) envfree;
     function isRewardAsset(address) external returns (bool) envfree;
     function rewardAssetEnabled(address) external returns (bool) envfree;
+    function isRewardAssetDeregistered(address) external returns (bool) envfree;
+    function expiredRewards(address) external returns (uint256) envfree;
     function syncedOwner(uint256) external returns (address) envfree;
     function syncedMultiplierBps(uint256) external returns (uint16) envfree;
     function formalOperatorInitialized(uint256) external returns (bool) envfree;
@@ -53,6 +63,7 @@ methods {
     function bootstrapOperators(uint256) external returns (uint256, uint256) => NONDET DELETE;
     function finalizeBootstrap() external => NONDET DELETE;
 
+    function system.hasRole(bytes32, address) external returns (bool) envfree;
     function system.ownerOf(uint256) external returns (address) envfree;
     function system.multiplierBps(uint256) external returns (uint16) envfree;
     function tokenA.balanceOf(address) external returns (uint256) envfree;
@@ -61,6 +72,7 @@ methods {
     function _.transfer(address, uint256) external => DISPATCHER(true);
     function _.transferFrom(address, address, uint256) external => DISPATCHER(true);
     function _.balanceOf(address) external => DISPATCHER(true);
+    function _.decimals() external => DISPATCHER(true);
 
     // SafeERC20's assembly call is rerouted to the linked exact-token implementation so the
     // proof models token storage precisely instead of accepting an unresolved-call havoc.
@@ -86,11 +98,12 @@ function cvlSafeTransferFrom(
     require success;
 }
 
-/// Ghost ledgers independently track all three authoritative book counters.
+/// Ghost ledgers independently track addition, claim, liability, and expiry counters.
 invariant ghostLedgersMatchStorage(address asset)
     addedGhost[asset] == to_mathint(formalBookTotalAdded(asset))
         && claimedGhost[asset] == to_mathint(formalBookTotalClaimed(asset))
         && liabilityGhost[asset] == to_mathint(formalBookLiability(asset))
+        && expiredGhost[asset] == to_mathint(expiredRewards(asset))
     {
         preserved with (env e) {
             require bootstrapFinalized();
@@ -98,10 +111,11 @@ invariant ghostLedgersMatchStorage(address asset)
         }
     }
 
-/// Accounted liability is exactly cumulative additions less cumulative claims.
-invariant liabilityEqualsAddedMinusClaimed(address asset)
+/// Accounted liability excludes both paid claims and permanently expired rewards.
+invariant liabilityEqualsAddedMinusClaimedAndExpired(address asset)
     to_mathint(formalBookLiability(asset))
         == to_mathint(formalBookTotalAdded(asset)) - to_mathint(formalBookTotalClaimed(asset))
+            - to_mathint(expiredRewards(asset))
     {
         preserved with (env e) {
             require bootstrapFinalized();
@@ -222,6 +236,7 @@ rule recoverSurplusPreservesAccounting(env e, address receiver, uint256 amount) 
     uint256 liabilityBefore = formalBookLiability(asset);
     uint256 forfeitedBefore = formalBookTotalForfeited(asset);
     uint256 forfeitedRemainderBefore = formalBookForfeitedRemainder(asset);
+    uint256 expiredBefore = expiredRewards(asset);
     uint256 routerBalanceBefore = tokenA.balanceOf(currentContract);
 
     recoverSurplus(e, asset, receiver, amount);
@@ -233,6 +248,7 @@ rule recoverSurplusPreservesAccounting(env e, address receiver, uint256 amount) 
     assert formalBookLiability(asset) == liabilityBefore;
     assert formalBookTotalForfeited(asset) == forfeitedBefore;
     assert formalBookForfeitedRemainder(asset) == forfeitedRemainderBefore;
+    assert expiredRewards(asset) == expiredBefore;
     assert to_mathint(tokenA.balanceOf(currentContract)) == to_mathint(routerBalanceBefore) - amount,
         "only surplus custody may leave";
 }
@@ -273,4 +289,35 @@ rule rewardAssetsAreIsolated(env e, uint256 amount) {
     assert formalBookTotalForfeited(assetB) == forfeitedBefore;
     assert formalBookForfeitedRemainder(assetB) == forfeitedRemainderBefore;
     assert tokenB.balanceOf(currentContract) == balanceBefore;
+}
+
+/// Timelocked expiry releases the complete liability without moving tokens or changing another asset.
+rule deregistrationExpiresLiabilityWithoutMovingTokens(env e) {
+    address asset = rewardA();
+    require asset != rewardB();
+    require e.msg.value == 0;
+    require e.msg.sender == routerTimelock();
+    require isRewardAsset(asset);
+    require !rewardAssetEnabled(asset);
+    require !isRewardAssetDeregistered(asset);
+    require expiredRewards(asset) == 0;
+    require rewardAssetCount() <= 2;
+    uint256 liabilityBefore = formalBookLiability(asset);
+    uint256 balanceBefore = tokenA.balanceOf(currentContract);
+    uint256 addedBefore = formalBookTotalAdded(asset);
+    uint256 claimedBefore = formalBookTotalClaimed(asset);
+    uint256 otherLiability = formalBookLiability(rewardB());
+    uint256 otherBalance = tokenB.balanceOf(currentContract);
+
+    deregisterRewardAsset(e, asset);
+
+    assert formalBookLiability(asset) == 0;
+    assert expiredRewards(asset) == liabilityBefore;
+    assert isRewardAssetDeregistered(asset);
+    assert !isRewardAsset(asset) && !rewardAssetEnabled(asset);
+    assert tokenA.balanceOf(currentContract) == balanceBefore;
+    assert formalBookTotalAdded(asset) == addedBefore;
+    assert formalBookTotalClaimed(asset) == claimedBefore;
+    assert formalBookLiability(rewardB()) == otherLiability;
+    assert tokenB.balanceOf(currentContract) == otherBalance;
 }

@@ -42,7 +42,7 @@ contract OperatorFeeRouterTimelockTest is Test {
         assertEq(timelock.getMinDelay(), DELAY);
     }
 
-    function test_AssetRegistrationRequiresScheduledTimelockExecution() public {
+    function test_TimelockCanStillRegisterAsset() public {
         vm.expectRevert(abi.encodeWithSelector(OperatorFeeRouter.Unauthorized.selector, address(this)));
         router.registerRewardAsset(address(token));
 
@@ -58,6 +58,14 @@ contract OperatorFeeRouterTimelockTest is Test {
         timelock.execute(address(router), 0, data, bytes32(0), salt);
         assertTrue(router.isRewardAsset(address(token)));
         assertTrue(router.rewardAssetEnabled(address(token)));
+    }
+
+    function test_ProposerRenunciationAlsoRemovesCancellationAuthority() public {
+        bytes32 role = timelock.PROPOSER_ROLE();
+        vm.prank(proposer);
+        timelock.renounceRole(role, proposer);
+        assertFalse(timelock.hasRole(timelock.PROPOSER_ROLE(), proposer));
+        assertFalse(timelock.hasRole(timelock.CANCELLER_ROLE(), proposer));
     }
 
     function test_TimelockCannotReduceDelayBelow24Hours() public {

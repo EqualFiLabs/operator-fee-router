@@ -31,10 +31,15 @@ contract DeployOperatorFeeRouter is Script {
         router = new OperatorFeeRouter(OPERATOR_COLLECTION, ACTIVATION_REGISTRY, OPERATOR_VAULT, address(timelock));
         vm.stopBroadcast();
 
-        _writeManifest(timelock, router, proposer);
+        _writeCandidate(timelock, router, proposers, executors);
     }
 
-    function _writeManifest(OperatorFeeRouterTimelock timelock, OperatorFeeRouter router, address proposer) internal {
+    function _writeCandidate(
+        OperatorFeeRouterTimelock timelock,
+        OperatorFeeRouter router,
+        address[] memory proposers,
+        address[] memory executors
+    ) internal {
         string memory objectKey = "operatorFeeRouter";
         vm.serializeUint(objectKey, "chainId", block.chainid);
         vm.serializeAddress(objectKey, "operatorCollection", OPERATOR_COLLECTION);
@@ -43,10 +48,25 @@ contract DeployOperatorFeeRouter is Script {
         vm.serializeAddress(objectKey, "timelock", address(timelock));
         vm.serializeAddress(objectKey, "router", address(router));
         vm.serializeUint(objectKey, "timelockDelay", timelock.getMinDelay());
-        vm.serializeAddress(objectKey, "timelockProposer", proposer);
+        vm.serializeAddress(objectKey, "timelockProposer", proposers[0]);
         vm.serializeAddress(objectKey, "timelockExecutor", address(0));
         vm.serializeBytes32(objectKey, "timelockCodehash", address(timelock).codehash);
+        vm.serializeBytes32(
+            objectKey,
+            "timelockCreationCodehash",
+            keccak256(abi.encodePacked(type(OperatorFeeRouterTimelock).creationCode, abi.encode(proposers, executors)))
+        );
+        vm.serializeBytes32(
+            objectKey,
+            "routerCreationCodehash",
+            keccak256(
+                abi.encodePacked(
+                    type(OperatorFeeRouter).creationCode,
+                    abi.encode(OPERATOR_COLLECTION, ACTIVATION_REGISTRY, OPERATOR_VAULT, address(timelock))
+                )
+            )
+        );
         string memory json = vm.serializeBytes32(objectKey, "routerCodehash", address(router).codehash);
-        vm.writeJson(json, string.concat(vm.projectRoot(), "/deployments/4663/operator-fee-router.json"));
+        vm.writeJson(json, string.concat(vm.projectRoot(), "/deployments/4663/operator-fee-router.candidate.json"));
     }
 }

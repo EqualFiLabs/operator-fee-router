@@ -14,6 +14,17 @@ contract OperatorFeeRouterTimelock is TimelockController {
         TimelockController(MIN_DELAY, proposers, executors, address(0))
     {}
 
+    /// @dev Proposal authority carries cancellation authority through grants, revocations, and renunciation.
+    function _grantRole(bytes32 role, address account) internal override returns (bool changed) {
+        changed = super._grantRole(role, account);
+        if (role == PROPOSER_ROLE) super._grantRole(CANCELLER_ROLE, account);
+    }
+
+    function _revokeRole(bytes32 role, address account) internal override returns (bool changed) {
+        changed = super._revokeRole(role, account);
+        if (role == PROPOSER_ROLE) super._revokeRole(CANCELLER_ROLE, account);
+    }
+
     /// @notice Delay changes remain self-administered and cannot reduce the response window below 24 hours.
     function updateDelay(uint256 newDelay) public override {
         if (newDelay < MIN_DELAY) revert TimelockDelayBelowMinimum(newDelay, MIN_DELAY);

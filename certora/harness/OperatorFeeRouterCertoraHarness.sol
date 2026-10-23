@@ -9,6 +9,10 @@ import {OperatorFeeRouter} from "../../src/OperatorFeeRouter.sol";
 abstract contract FormalExactToken {
     mapping(address account => uint256 amount) public balanceOf;
 
+    function decimals() external pure returns (uint8) {
+        return 18;
+    }
+
     function mint(address receiver, uint256 amount) external {
         balanceOf[receiver] += amount;
     }
@@ -60,6 +64,10 @@ contract FormalOperatorSystem {
         _multiplierBps[1] = 10_000;
         _multiplierBps[2] = 10_000;
         _multiplierBps[3] = 10_000;
+    }
+
+    function hasRole(bytes32 role, address account) external pure returns (bool) {
+        return role == keccak256("PROPOSER_ROLE") && account == address(0x4444);
     }
 
     function ownerOf(uint256 operatorId) external view returns (address) {

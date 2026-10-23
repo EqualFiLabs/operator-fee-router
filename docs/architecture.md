@@ -9,11 +9,17 @@ Operator callback, and no ability to modify Operator ownership or activation. It
 - `multiplierBps(operatorId)` from the activation registry; and
 - the Operator vault address, which always maps to zero reward weight.
 
-The immutable router timelock may register or disable reward assets and recover only token balances exceeding recorded
-liability. Its initial and minimum future delay is 24 hours. Execution is open, while the deployment proposer must be a
-verified multisig or Governor. Ready OpenZeppelin timelock operations do not expire automatically, so the proposer must
-cancel superseded operations. The timelock cannot edit indexes, synchronized Operator state, checkpoints, or claims. V1
-has no proxy, guardian, or global pause.
+The immutable router timelock is the authority for reward expiry and surplus recovery. Its initial and minimum future
+delay is 24 hours. Execution is open, while the deployment proposer must be a verified multisig or Governor. Proposers
+can register assets and toggle deposits immediately; the timelock itself retains those permissions. Direct management
+authority follows the existing `PROPOSER_ROLE`, so role rotation needs no separate Router administrator.
+Granting or revoking `PROPOSER_ROLE` also grants or revokes `CANCELLER_ROLE` for that account. Renunciation also removes
+both roles. Grant successor authority before removing the sole proposer; otherwise no new operation can be scheduled.
+
+Ready OpenZeppelin timelock operations do not expire automatically. Governance must cancel superseded operations;
+re-enabling deposits does not cancel a queued deregistration. The timelock cannot rewrite indexes, synchronized Operator
+state, or checkpoints. It can intentionally expire an asset's remaining liabilities through deregistration. V1 has no
+proxy, guardian, or global pause.
 
 ## Accounting
 
@@ -26,7 +32,9 @@ behavior, indexes against the current synchronized total weight, and never itera
 not affect indexes and are recoverable only to the extent that they exceed recorded liability. Rebasing and otherwise
 non-exact assets are outside V1's supported asset set.
 
-Each asset's outstanding liability is capped at `type(uint96).max` base units. At the minimum 10,000 weight denominator,
+Registration requires the asset's `decimals()` to return at most 18; missing or invalid metadata reverts registration.
+Each asset's outstanding liability is capped at `type(uint96).max` base units (at least 79.2 billion whole tokens).
+At the minimum 10,000 weight denominator,
 this preserves more than `1e25` maximum-sized index increments before the `uint256` index boundary, eliminating practical
 index-saturation griefing while remaining well above conventional 18-decimal reward supplies. Governance onboarding must
 also reject assets whose fees, rebases, pause, or blocklist can later change exact transfer behavior;
@@ -71,3 +79,29 @@ router.addRewards(asset, amount);
 ```
 
 Native revenue must be wrapped before contribution. Claims remain live when an asset is disabled for new deposits.
+
+## Claim-only and permanent deregistration
+
+Disabling deposits leaves the asset registered and included in settlement, activation, transfer forfeiture, and pending
+forfeiture redistribution. Claims remain available; governance can re-enable deposits at any time before deregistration.
+
+`deregisterRewardAsset(asset)` requires the timelock caller and a registered asset with disabled deposits. Its execution
+is the claim cutoff. It records the complete outstanding liability in `expiredRewards(asset)`, sets liability to zero,
+and marks `isRewardAssetDeregistered(asset)` permanently true. The existing book getter retains its ABI. Lifetime
+accounting becomes `totalAdded = totalClaimed + accountedLiability + expiredRewards`.
+
+Removal uses a bounded search and swap-and-pop over the maximum 64 registered assets. `rewardAssetCount` and
+`rewardAssetAt` enumerate active and claim-only assets; their order is not stable. A removed asset frees a slot for a
+new token address. Re-registering the same address is permanently forbidden, including after zero-liability expiry.
+
+The original index, totals, and per-Operator records are retained as history. Those raw records are no longer live
+entitlements: deposits, claims, reward previews, pending-forfeiture flushes, and enablement revert for a deregistered
+asset. Synchronization skips it. No per-Operator cleanup or token call occurs during deregistration, so a broken token
+cannot block the expiry operation. Other assets' books and global Operator weights are unchanged.
+
+Any remaining balance is then surplus under the existing recovery calculation. Deregistration does not transfer it;
+recovery remains a separate timelock-authorized action. Existing timelock batching is available without adding a second
+lock. A failed recovery in the same batch rolls the entire batch back, including deregistration.
+
+The Router is immutable. This lifecycle applies to fresh deployments; earlier deployment manifests remain historical
+evidence for their pinned source and do not describe the updated contract.

@@ -1,6 +1,10 @@
 # Formal verification results
 
-Results recorded on 2026-09-07 for the production contracts and formal inputs committed with this implementation.
+Historical results recorded on 2026-09-07 for the source and formal inputs submitted at that time.
+
+The current asset-lifecycle specifications include expired liabilities and a deregistration rule. Those revised Certora
+specifications have not been submitted as a new proof run; the historical results below do not prove this revision.
+Current CI Halmos results cover only the timelock floor and bounded synchronization properties.
 
 ## Halmos 0.3.3
 
