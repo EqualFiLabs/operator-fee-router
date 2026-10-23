@@ -111,11 +111,14 @@ invariant ghostLedgersMatchStorage(address asset)
         }
     }
 
-/// Accounted liability excludes both paid claims and permanently expired rewards.
+/// Accounting and lifecycle state are proved together so expiry cannot overwrite an earlier expiry.
 invariant liabilityEqualsAddedMinusClaimedAndExpired(address asset)
-    to_mathint(formalBookLiability(asset))
+    (to_mathint(formalBookLiability(asset))
         == to_mathint(formalBookTotalAdded(asset)) - to_mathint(formalBookTotalClaimed(asset))
-            - to_mathint(expiredRewards(asset))
+            - to_mathint(expiredRewards(asset)))
+        && (!isRewardAssetDeregistered(asset) => expiredRewards(asset) == 0)
+        && (isRewardAssetDeregistered(asset)
+            => !isRewardAsset(asset) && formalBookLiability(asset) == 0)
     {
         preserved with (env e) {
             require bootstrapFinalized();
