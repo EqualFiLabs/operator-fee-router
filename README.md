@@ -103,9 +103,10 @@ Verify each deployed contract through Robinhood Blockscout using `forge verify-c
 
 ## Validation
 
-Foundry provides unit, fuzz, invariant, gas, and pinned-fork suites. Halmos harnesses run in GitHub Actions, and the
-Certora specifications can be submitted with `scripts/run-certora.sh`. Completed formal-verification results and model
-bounds are recorded in [the formal results](docs/formal-verification-results.md).
+Foundry provides unit, fuzz, invariant, gas, and pinned-fork suites. GitHub Actions runs the timelock and sync Halmos
+harnesses. The [central formal verification summary](docs/formal-verification-results.md) documents the verification
+commands, proof coverage, model bounds, and recorded outcomes for Halmos and Certora. Generated proof outputs stay
+outside version control.
 
 The full pinned 5,555-Operator lifecycle is enabled with `RUN_FULL_ROUTER_FORK=true` and requires
 `ROBINHOOD_MAINNET`. Without the RPC, fork tests report as skipped rather than passing silently.

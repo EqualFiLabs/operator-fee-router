@@ -6,3 +6,7 @@
 /.env
 /.idea/
 /.vscode/
+/.formal-results/
+/docs/formal-evidence/
+/.solidity-auditor/
+/emv-*-certora-*/
