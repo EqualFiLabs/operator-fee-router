@@ -91,9 +91,11 @@ contract OperatorFeeRouterCertoraHarness is OperatorFeeRouter {
     address public immutable rewardA;
     address public immutable rewardB;
 
-    constructor(address system, address rewardA_, address rewardB_)
-        OperatorFeeRouter(system, system, system, system)
-    {
+    constructor(address system, address rewardA_, address rewardB_) OperatorFeeRouter(system, system, system, system) {
+        // The Certora scene fixes these deployment identities in each configuration.
+        // Constrain constructor arguments as well as post-construction immutable links.
+        require(system == address(0x1000), "formal system");
+        require(rewardA_ == address(0x2000) && rewardB_ == address(0x3000), "formal assets");
         rewardA = rewardA_;
         rewardB = rewardB_;
 
@@ -105,6 +107,15 @@ contract OperatorFeeRouterCertoraHarness is OperatorFeeRouter {
         }
         nextOperatorId = LAST_OPERATOR_ID + 1;
         bootstrapFinalized = true;
+    }
+
+    function formalRewardAssetAtOrZero(uint256 index) external view returns (address) {
+        if (index >= this.rewardAssetCount()) return address(0);
+        return this.rewardAssetAt(index);
+    }
+
+    function formalReentrancyGuardEntered() external view returns (bool) {
+        return _reentrancyGuardEntered();
     }
 
     function formalOperatorInitialized(uint256 operatorId) external view returns (bool) {

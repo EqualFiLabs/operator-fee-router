@@ -23,9 +23,25 @@ case "$TARGET" in
   sync)
     run_config OperatorFeeRouterSync
     ;;
+  economic)
+    run_config OperatorFeeRouterEconomic
+    ;;
+  conservation)
+    run_config OperatorFeeRouterConservation
+    ;;
+  math)
+    run_config IndexMath
+    ;;
+  settlement)
+    run_config SettlementMath
+    ;;
   all)
+    run_config IndexMath
+    run_config SettlementMath
     run_config OperatorFeeRouterAccounting
+    run_config OperatorFeeRouterConservation
     run_config OperatorFeeRouterSync
+    run_config OperatorFeeRouterEconomic
     ;;
   *)
     printf 'unknown Certora target: %s\n' "$TARGET" >&2
