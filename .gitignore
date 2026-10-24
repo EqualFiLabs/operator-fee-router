@@ -1,0 +1,12 @@
+/cache/
+/out/
+/broadcast/
+/snapshots/
+/.certora_internal/
+/.env
+/.idea/
+/.vscode/
+/.formal-results/
+/docs/formal-evidence/
+/.solidity-auditor/
+/emv-*-certora-*/

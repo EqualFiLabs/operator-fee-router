@@ -1,0 +1,309 @@
+using FormalOperatorSystem as system;
+using FormalRewardTokenA as tokenA;
+using FormalRewardTokenB as tokenB;
+
+methods {
+    function formalReentrancyGuardEntered() external returns (bool) envfree;
+    function rewardA() external returns (address) envfree;
+    function rewardB() external returns (address) envfree;
+    function routerTimelock() external returns (address) envfree;
+    function operatorVault() external returns (address) envfree;
+    function bootstrapFinalized() external returns (bool) envfree;
+    function totalEffectiveWeight() external returns (uint256) envfree;
+    function rewardAssetCount() external returns (uint256) envfree;
+    function isRewardAsset(address) external returns (bool) envfree;
+    function rewardAssetEnabled(address) external returns (bool) envfree;
+    function isRewardAssetDeregistered(address) external returns (bool) envfree;
+    function expiredRewards(address) external returns (uint256) envfree;
+    function syncedOwner(uint256) external returns (address) envfree;
+    function syncedMultiplierBps(uint256) external returns (uint16) envfree;
+    function formalOperatorInitialized(uint256) external returns (bool) envfree;
+    function formalBookIndex(address) external returns (uint256) envfree;
+    function formalBookIndexRemainder(address) external returns (uint256) envfree;
+    function formalBookTotalAdded(address) external returns (uint256) envfree;
+    function formalBookTotalClaimed(address) external returns (uint256) envfree;
+    function formalBookLiability(address) external returns (uint256) envfree;
+    function formalBookTotalForfeited(address) external returns (uint256) envfree;
+    function formalBookForfeitedRemainder(address) external returns (uint256) envfree;
+    function pendingOperatorRewards(uint256, address) external returns (uint256) envfree;
+
+    // The harness constructor is already finalized. Removing these unreachable lifecycle entry
+    // points prevents their guaranteed reverts from being misreported as vacuous invariant cases.
+    function bootstrapOperators(uint256) external returns (uint256, uint256) => NONDET DELETE;
+    function finalizeBootstrap() external => NONDET DELETE;
+
+    function system.hasRole(bytes32, address) external returns (bool) envfree;
+    function system.ownerOf(uint256) external returns (address) envfree;
+    function system.multiplierBps(uint256) external returns (uint16) envfree;
+    function tokenA.balanceOf(address) external returns (uint256) envfree;
+    function tokenB.balanceOf(address) external returns (uint256) envfree;
+
+    function _.transfer(address, uint256) external => DISPATCHER(true);
+    function _.transferFrom(address, address, uint256) external => DISPATCHER(true);
+    function _.balanceOf(address) external => DISPATCHER(true);
+    function _.decimals() external => DISPATCHER(true);
+
+    // SafeERC20's assembly call is rerouted to the linked exact-token implementation so the
+    // proof models token storage precisely instead of accepting an unresolved-call havoc.
+    function _.safeTransfer(address token, address to, uint256 value) internal with(env e)
+        => cvlSafeTransfer(executingContract, e, token, to, value) expect void;
+    function _.safeTransferFrom(address token, address from, address to, uint256 value) internal with(env e)
+        => cvlSafeTransferFrom(e, token, from, to, value) expect void;
+}
+
+function cvlSafeTransfer(address executing, env e, address token, address to, uint256 value) {
+    bool success = token.transferFrom(e, executing, to, value);
+    require success;
+}
+
+function cvlSafeTransferFrom(
+    env e,
+    address token,
+    address from,
+    address to,
+    uint256 value
+) {
+    bool success = token.transferFrom(e, from, to, value);
+    require success;
+}
+
+/// Accounting and lifecycle state are proved together so expiry cannot overwrite an earlier expiry.
+invariant liabilityEqualsAddedMinusClaimedAndExpired(address asset)
+    (to_mathint(formalBookLiability(asset))
+        == to_mathint(formalBookTotalAdded(asset)) - to_mathint(formalBookTotalClaimed(asset))
+            - to_mathint(expiredRewards(asset)))
+        && (!isRewardAssetDeregistered(asset) => expiredRewards(asset) == 0)
+        && (isRewardAssetDeregistered(asset)
+            => !isRewardAsset(asset) && formalBookLiability(asset) == 0)
+    {
+        preserved with (env e) {
+            require bootstrapFinalized();
+            require rewardAssetCount() <= 2;
+        }
+    }
+
+/// Each linked exact-transfer reward token always covers its recorded liability.
+invariant rewardATokenSolvency()
+    to_mathint(tokenA.balanceOf(currentContract)) >= to_mathint(formalBookLiability(rewardA()))
+    {
+        preserved with (env e) {
+            require bootstrapFinalized();
+            require rewardAssetCount() <= 2;
+        }
+    }
+
+invariant rewardBTokenSolvency()
+    to_mathint(tokenB.balanceOf(currentContract)) >= to_mathint(formalBookLiability(rewardB()))
+    {
+        preserved with (env e) {
+            require bootstrapFinalized();
+            require rewardAssetCount() <= 2;
+        }
+    }
+
+/// A successful permissionless contribution changes custody, addition, and liability by exactly `amount`.
+rule addRewardsHasExactDeltas(env e, uint256 amount) {
+    address asset = rewardA();
+    require e.msg.value == 0;
+    require !formalReentrancyGuardEntered();
+    require e.msg.sender != currentContract;
+    require bootstrapFinalized();
+    require rewardAssetCount() <= 2;
+    require isRewardAsset(asset);
+    require rewardAssetEnabled(asset);
+    require totalEffectiveWeight() > 0;
+    require amount > 0;
+    require formalBookIndexRemainder(asset) < 37500;
+    require to_mathint(formalBookTotalAdded(asset)) + amount <= max_uint256;
+    require to_mathint(formalBookIndex(asset))
+        + (to_mathint(amount) * 1000000000000000000000000000 + formalBookIndexRemainder(asset))
+            / totalEffectiveWeight() <= max_uint256;
+    require to_mathint(formalBookLiability(asset)) + amount <= 79228162514264337593543950335;
+    require tokenA.balanceOf(e.msg.sender) >= amount;
+    require to_mathint(tokenA.balanceOf(currentContract)) + amount <= max_uint256;
+
+    uint256 addedBefore = formalBookTotalAdded(asset);
+    uint256 claimedBefore = formalBookTotalClaimed(asset);
+    uint256 liabilityBefore = formalBookLiability(asset);
+    uint256 routerBalanceBefore = tokenA.balanceOf(currentContract);
+    uint256 senderBalanceBefore = tokenA.balanceOf(e.msg.sender);
+
+    addRewards@withrevert(e, asset, amount);
+    bool succeeded = !lastReverted;
+    assert succeeded, "valid contribution must succeed with arithmetic headroom";
+
+    assert to_mathint(formalBookTotalAdded(asset)) == to_mathint(addedBefore) + amount,
+        "addition counter must increase exactly";
+    assert formalBookTotalClaimed(asset) == claimedBefore,
+        "contribution must not change claims";
+    assert to_mathint(formalBookLiability(asset)) == to_mathint(liabilityBefore) + amount,
+        "liability must increase exactly";
+    assert to_mathint(tokenA.balanceOf(currentContract)) == to_mathint(routerBalanceBefore) + amount,
+        "router custody must increase exactly";
+    assert to_mathint(tokenA.balanceOf(e.msg.sender)) == to_mathint(senderBalanceBefore) - amount,
+        "contributor balance must decrease exactly";
+}
+
+/// A no-transition claim pays exactly the reported pending amount and reduces custody and liability together.
+rule claimHasExactDeltas(env e, address receiver) {
+    address asset = rewardA();
+    require e.msg.value == 0;
+    require !formalReentrancyGuardEntered();
+    require rewardAssetCount() <= 2;
+    require isRewardAsset(asset);
+    require formalOperatorInitialized(1);
+    require system.ownerOf(1) == syncedOwner(1);
+    require system.multiplierBps(1) == syncedMultiplierBps(1);
+    require system.multiplierBps(1) >= 10000 && system.multiplierBps(1) <= 12500;
+    require e.msg.sender == syncedOwner(1);
+    require e.msg.sender != operatorVault();
+    require receiver != 0 && receiver != currentContract;
+
+    uint256 pending = pendingOperatorRewards(1, asset);
+    require pending > 0;
+    require to_mathint(formalBookTotalClaimed(asset)) + pending <= max_uint256;
+    require formalBookLiability(asset) >= pending;
+    require tokenA.balanceOf(currentContract) >= pending;
+    require to_mathint(tokenA.balanceOf(receiver)) + pending <= max_uint256;
+
+    uint256 addedBefore = formalBookTotalAdded(asset);
+    uint256 claimedBefore = formalBookTotalClaimed(asset);
+    uint256 liabilityBefore = formalBookLiability(asset);
+    uint256 routerBalanceBefore = tokenA.balanceOf(currentContract);
+    uint256 receiverBalanceBefore = tokenA.balanceOf(receiver);
+
+    uint256 claimed = claimOperatorRewards@withrevert(e, 1, asset, receiver);
+    bool succeeded = !lastReverted;
+    assert succeeded, "valid no-transition claim must succeed";
+
+    assert claimed == pending, "claim must equal the pre-call pending amount";
+    assert formalBookTotalAdded(asset) == addedBefore,
+        "claim must not change cumulative additions";
+    assert to_mathint(formalBookTotalClaimed(asset)) == to_mathint(claimedBefore) + claimed,
+        "claim counter must increase exactly";
+    assert to_mathint(formalBookLiability(asset)) == to_mathint(liabilityBefore) - claimed,
+        "claim must reduce liability exactly";
+    assert to_mathint(tokenA.balanceOf(currentContract)) == to_mathint(routerBalanceBefore) - claimed,
+        "claim must reduce router custody exactly";
+    assert to_mathint(tokenA.balanceOf(receiver)) == to_mathint(receiverBalanceBefore) + claimed,
+        "receiver must be paid exactly";
+}
+
+/// Timelocked surplus recovery cannot mutate any reward-accounting field.
+rule recoverSurplusPreservesAccounting(env e, address receiver, uint256 amount) {
+    address asset = rewardA();
+    require e.msg.value == 0;
+    require !formalReentrancyGuardEntered();
+    require e.msg.sender == routerTimelock();
+    require receiver != 0 && receiver != currentContract;
+    require amount > 0;
+    require tokenA.balanceOf(currentContract) >= formalBookLiability(asset);
+    require to_mathint(tokenA.balanceOf(currentContract))
+        >= to_mathint(formalBookLiability(asset)) + amount;
+    require to_mathint(tokenA.balanceOf(receiver)) + amount <= max_uint256;
+
+    uint256 indexBefore = formalBookIndex(asset);
+    uint256 indexRemainderBefore = formalBookIndexRemainder(asset);
+    uint256 addedBefore = formalBookTotalAdded(asset);
+    uint256 claimedBefore = formalBookTotalClaimed(asset);
+    uint256 liabilityBefore = formalBookLiability(asset);
+    uint256 forfeitedBefore = formalBookTotalForfeited(asset);
+    uint256 forfeitedRemainderBefore = formalBookForfeitedRemainder(asset);
+    uint256 expiredBefore = expiredRewards(asset);
+    uint256 routerBalanceBefore = tokenA.balanceOf(currentContract);
+
+    recoverSurplus@withrevert(e, asset, receiver, amount);
+    bool succeeded = !lastReverted;
+    assert succeeded, "valid surplus recovery must succeed";
+
+    assert formalBookIndex(asset) == indexBefore;
+    assert formalBookIndexRemainder(asset) == indexRemainderBefore;
+    assert formalBookTotalAdded(asset) == addedBefore;
+    assert formalBookTotalClaimed(asset) == claimedBefore;
+    assert formalBookLiability(asset) == liabilityBefore;
+    assert formalBookTotalForfeited(asset) == forfeitedBefore;
+    assert formalBookForfeitedRemainder(asset) == forfeitedRemainderBefore;
+    assert expiredRewards(asset) == expiredBefore;
+    assert to_mathint(tokenA.balanceOf(currentContract)) == to_mathint(routerBalanceBefore) - amount,
+        "only surplus custody may leave";
+}
+
+/// A contribution to reward A cannot mutate reward B's independent book or custody.
+rule rewardAssetsAreIsolated(env e, uint256 amount) {
+    address assetA = rewardA();
+    address assetB = rewardB();
+    require e.msg.value == 0;
+    require !formalReentrancyGuardEntered();
+    require e.msg.sender != currentContract;
+    require assetA != assetB;
+    require bootstrapFinalized();
+    require rewardAssetCount() == 2;
+    require isRewardAsset(assetA) && isRewardAsset(assetB);
+    require rewardAssetEnabled(assetA);
+    require totalEffectiveWeight() > 0;
+    require amount > 0;
+    require formalBookIndexRemainder(assetA) < 37500;
+    require to_mathint(formalBookTotalAdded(assetA)) + amount <= max_uint256;
+    require to_mathint(formalBookIndex(assetA))
+        + (to_mathint(amount) * 1000000000000000000000000000 + formalBookIndexRemainder(assetA))
+            / totalEffectiveWeight() <= max_uint256;
+    require to_mathint(formalBookLiability(assetA)) + amount <= 79228162514264337593543950335;
+    require tokenA.balanceOf(e.msg.sender) >= amount;
+    require to_mathint(tokenA.balanceOf(currentContract)) + amount <= max_uint256;
+
+    uint256 indexBefore = formalBookIndex(assetB);
+    uint256 indexRemainderBefore = formalBookIndexRemainder(assetB);
+    uint256 addedBefore = formalBookTotalAdded(assetB);
+    uint256 claimedBefore = formalBookTotalClaimed(assetB);
+    uint256 liabilityBefore = formalBookLiability(assetB);
+    uint256 forfeitedBefore = formalBookTotalForfeited(assetB);
+    uint256 forfeitedRemainderBefore = formalBookForfeitedRemainder(assetB);
+    uint256 balanceBefore = tokenB.balanceOf(currentContract);
+
+    addRewards@withrevert(e, assetA, amount);
+    bool succeeded = !lastReverted;
+    assert succeeded, "valid contribution must succeed with arithmetic headroom";
+
+    assert formalBookIndex(assetB) == indexBefore;
+    assert formalBookIndexRemainder(assetB) == indexRemainderBefore;
+    assert formalBookTotalAdded(assetB) == addedBefore;
+    assert formalBookTotalClaimed(assetB) == claimedBefore;
+    assert formalBookLiability(assetB) == liabilityBefore;
+    assert formalBookTotalForfeited(assetB) == forfeitedBefore;
+    assert formalBookForfeitedRemainder(assetB) == forfeitedRemainderBefore;
+    assert tokenB.balanceOf(currentContract) == balanceBefore;
+}
+
+/// Timelocked expiry releases the complete liability without moving tokens or changing another asset.
+rule deregistrationExpiresLiabilityWithoutMovingTokens(env e) {
+    address asset = rewardA();
+    require asset != rewardB();
+    require e.msg.value == 0;
+    require !formalReentrancyGuardEntered();
+    require e.msg.sender == routerTimelock();
+    require isRewardAsset(asset);
+    require !rewardAssetEnabled(asset);
+    require !isRewardAssetDeregistered(asset);
+    require expiredRewards(asset) == 0;
+    require rewardAssetCount() <= 2;
+    uint256 liabilityBefore = formalBookLiability(asset);
+    uint256 balanceBefore = tokenA.balanceOf(currentContract);
+    uint256 addedBefore = formalBookTotalAdded(asset);
+    uint256 claimedBefore = formalBookTotalClaimed(asset);
+    uint256 otherLiability = formalBookLiability(rewardB());
+    uint256 otherBalance = tokenB.balanceOf(currentContract);
+
+    deregisterRewardAsset@withrevert(e, asset);
+    bool succeeded = !lastReverted;
+    assert succeeded, "authorized claim-only expiry must succeed";
+
+    assert formalBookLiability(asset) == 0;
+    assert expiredRewards(asset) == liabilityBefore;
+    assert isRewardAssetDeregistered(asset);
+    assert !isRewardAsset(asset) && !rewardAssetEnabled(asset);
+    assert tokenA.balanceOf(currentContract) == balanceBefore;
+    assert formalBookTotalAdded(asset) == addedBefore;
+    assert formalBookTotalClaimed(asset) == claimedBefore;
+    assert formalBookLiability(rewardB()) == otherLiability;
+    assert tokenB.balanceOf(currentContract) == otherBalance;
+}
