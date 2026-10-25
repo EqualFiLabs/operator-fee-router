@@ -110,3 +110,6 @@ outside version control.
 
 The full pinned 5,555-Operator lifecycle is enabled with `RUN_FULL_ROUTER_FORK=true` and requires
 `ROBINHOOD_MAINNET`. Without the RPC, fork tests report as skipped rather than passing silently.
+
+For receipt-backed Anvil and cast lifecycle, hostile-asset and stateful campaigns, see the
+[mainnet fork rehearsal](scripts/mainnet-rehearsal/README.md). Generated evidence remains private.

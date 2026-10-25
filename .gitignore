@@ -10,3 +10,5 @@
 /docs/formal-evidence/
 /.solidity-auditor/
 /emv-*-certora-*/
+/.rehearsal-results/
+/scripts/mainnet-rehearsal/__pycache__/
