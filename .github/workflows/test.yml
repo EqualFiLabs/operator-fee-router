@@ -21,6 +21,9 @@ jobs:
         with:
           version: v1.7.1
 
+      - name: Check rehearsal safety and evidence validation
+        run: python3 -m unittest discover -s scripts/mainnet-rehearsal -p 'test_*.py' -v
+
       - name: Check formatting
         run: forge fmt --check
 
