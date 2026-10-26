@@ -18,7 +18,7 @@ contract OperatorFeeRouter is ReentrancyGuard {
     uint256 public constant RAY = 1e27;
     uint256 public constant COLLECTION_SIZE = 5_555;
     uint256 public constant FIRST_OPERATOR_ID = 1;
-    uint256 public constant LAST_OPERATOR_ID = 5_555;
+    uint256 public constant LAST_OPERATOR_ID = FIRST_OPERATOR_ID + COLLECTION_SIZE - 1;
     uint256 public constant MAX_BOOTSTRAP_BATCH = 100;
     uint256 public constant MAX_REWARD_ASSETS = 64;
     uint8 public constant MAX_REWARD_ASSET_DECIMALS = 18;
@@ -252,9 +252,9 @@ contract OperatorFeeRouter is ReentrancyGuard {
             totalEffectiveWeight += weight;
 
             emit OperatorInitialized(operatorId, owner, multiplierBps, weight, totalEffectiveWeight);
-            ++initializedCount;
         }
 
+        initializedCount = exclusiveEnd - cursor;
         nextOperatorId = exclusiveEnd;
         nextId = exclusiveEnd;
     }
@@ -465,24 +465,12 @@ contract OperatorFeeRouter is ReentrancyGuard {
         address previousOwner = state.syncedOwner;
         uint16 previousMultiplierBps = state.syncedMultiplierBps;
         uint16 previousWeight = state.effectiveWeight;
+        uint16 currentWeight = currentOwner == operatorVault ? 0 : currentMultiplierBps;
 
         if (currentOwner == previousOwner && currentMultiplierBps == previousMultiplierBps) {
             kind = SyncKind.Noop;
-            emit OperatorSynced(
-                operatorId,
-                previousOwner,
-                currentOwner,
-                previousMultiplierBps,
-                currentMultiplierBps,
-                previousWeight,
-                previousWeight,
-                kind
-            );
-            return kind;
-        }
-
-        uint16 currentWeight = currentOwner == operatorVault ? 0 : currentMultiplierBps;
-        if (currentOwner == previousOwner && currentMultiplierBps > previousMultiplierBps) {
+            currentWeight = previousWeight;
+        } else if (currentOwner == previousOwner && currentMultiplierBps > previousMultiplierBps) {
             _settleAll(operatorId, previousWeight);
             totalEffectiveWeight = totalEffectiveWeight - previousWeight + currentWeight;
             state.syncedMultiplierBps = currentMultiplierBps;

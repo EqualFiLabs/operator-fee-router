@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.33;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {OperatorFeeRouter} from "../src/OperatorFeeRouter.sol";
 import {MockActivationRegistry, MockAuthority, MockOperatorCollection, MockVault} from "./mocks/MockOperatorSystem.sol";
 import {MockERC20, MockFeeToken, MockReentrantToken, MockSenderFeeToken} from "./mocks/MockTokens.sol";
@@ -141,8 +141,13 @@ contract OperatorFeeRouterTest is Test {
         OperatorFeeRouter fresh =
             new OperatorFeeRouter(address(freshCollection), address(freshRegistry), address(vault), address(timelock));
         for (uint256 i; i < 56; ++i) {
-            fresh.bootstrapOperators(100);
+            (uint256 initializedCount, uint256 nextId) = fresh.bootstrapOperators(100);
+            assertEq(initializedCount, i == 55 ? 55 : 100);
+            assertEq(nextId, fresh.nextOperatorId());
         }
+        (uint256 emptyCount, uint256 exhaustedNextId) = fresh.bootstrapOperators(100);
+        assertEq(emptyCount, 0);
+        assertEq(exhaustedNextId, 5_556);
         assertEq(fresh.nextOperatorId(), 5_556);
         assertEq(fresh.totalEffectiveWeight(), 22_500);
         fresh.finalizeBootstrap();
@@ -526,6 +531,39 @@ contract OperatorFeeRouterTest is Test {
         _add(token, 225 ether);
         assertEq(router.pendingOperatorRewards(1, address(token)), 225 ether);
         assertEq(router.pendingOperatorRewards(2, address(token)), 200 ether);
+    }
+
+    function test_SyncEmitsOneSnapshotAndOnlyActualWeightChanges() public {
+        vm.recordLogs();
+        router.syncOperator(1);
+        registry.setMultiplier(1, 12_500);
+        router.syncOperator(1);
+        collection.setOwner(1, carol);
+        router.syncOperator(1);
+        collection.setOwner(1, address(vault));
+        router.syncOperator(1);
+        router.syncOperator(1);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 7);
+        bytes32 synced = keccak256("OperatorSynced(uint256,address,address,uint16,uint16,uint16,uint16,uint8)");
+        bytes32 weightChanged = keccak256("OperatorWeightChanged(uint256,uint16,uint16,uint256)");
+        for (uint256 i; i < logs.length; ++i) {
+            assertEq(logs[i].emitter, address(router));
+            assertEq(logs[i].topics[0], i == 1 || i == 4 ? weightChanged : synced);
+            assertEq(logs[i].topics[1], bytes32(uint256(1)));
+        }
+        assertEq(logs[0].data, abi.encode(10_000, 10_000, 10_000, 10_000, OperatorFeeRouter.SyncKind.Noop));
+        assertEq(logs[1].data, abi.encode(10_000, 12_500, 22_500));
+        assertEq(logs[2].data, abi.encode(10_000, 12_500, 10_000, 12_500, OperatorFeeRouter.SyncKind.Activation));
+        assertEq(logs[3].topics[2], bytes32(uint256(uint160(alice))));
+        assertEq(logs[3].topics[3], bytes32(uint256(uint160(carol))));
+        assertEq(logs[3].data, abi.encode(12_500, 12_500, 12_500, 12_500, OperatorFeeRouter.SyncKind.Transfer));
+        assertEq(logs[4].data, abi.encode(12_500, 0, 10_000));
+        assertEq(logs[5].topics[2], bytes32(uint256(uint160(carol))));
+        assertEq(logs[5].topics[3], bytes32(uint256(uint160(address(vault)))));
+        assertEq(logs[5].data, abi.encode(12_500, 12_500, 12_500, 0, OperatorFeeRouter.SyncKind.Transfer));
+        assertEq(logs[6].data, abi.encode(12_500, 12_500, 0, 0, OperatorFeeRouter.SyncKind.Noop));
     }
 
     function testFuzz_SyncClassifiesAndInstallsCanonicalState(
