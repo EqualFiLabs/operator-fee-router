@@ -22,6 +22,27 @@ rpc() {
     fi
 }
 
+# Cast versions can return either a legacy object or a versioned result envelope.
+# Validate the envelope before unwrapping it; an RPC success exit code alone is
+# not evidence that its structured result succeeded.
+rpc_json() {
+    local response
+    response=$(rpc "$@" --json) || return 1
+    if ! jq -es '
+        if length != 1 then error("expected one result") else .[0] end |
+        if type != "object" then error("expected object")
+        elif has("schema_version") or has("success") or has("errors") or has("warnings") then
+            if .schema_version == 1 and .success == true and
+                (.errors | type == "array" and length == 0) and
+                (.warnings | type == "array") and (.data | type == "object")
+            then .data else error("invalid result envelope") end
+        else . end
+    ' <<<"$response" 2>/dev/null; then
+        printf 'Invalid or unsuccessful Cast JSON result: %s\n' "$1" >&2
+        return 1
+    fi
+}
+
 assert_equal() {
     if [[ ${1,,} != "${2,,}" ]]; then
         printf '%s mismatch\n' "$3" >&2
@@ -46,11 +67,11 @@ for kind in timelock router; do
     if [[ $kind == timelock ]]; then tx=$1; else tx=$2; fi
     [[ $tx =~ ^0x[0-9a-fA-F]{64}$ ]] || { printf 'Invalid transaction hash\n' >&2; exit 1; }
     address=$(jq -r --arg kind "$kind" '.[$kind]' "$temporary")
-    receipt=$(rpc receipt "$tx" --json)
+    receipt=$(rpc_json receipt "$tx")
     jq -e '.status == "0x1" and .blockNumber != null and .blockHash != null' <<<"$receipt" >/dev/null
     assert_equal "$(jq -r '.transactionHash' <<<"$receipt")" "$tx" "$kind transaction"
     assert_equal "$(jq -r '.contractAddress' <<<"$receipt")" "$address" "$kind deployment address"
-    transaction=$(rpc tx "$tx" --json)
+    transaction=$(rpc_json tx "$tx")
     jq -e '.to == null and (.input | type == "string" and test("^0x[0-9a-fA-F]+$"))' <<<"$transaction" >/dev/null
     creation_hash=$("$cast_bin" keccak "$(jq -r '.input' <<<"$transaction")")
     assert_equal "$creation_hash" \

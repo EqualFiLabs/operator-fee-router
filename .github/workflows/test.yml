@@ -24,6 +24,9 @@ jobs:
       - name: Check rehearsal safety and evidence validation
         run: python3 -m unittest discover -s scripts/mainnet-rehearsal -p 'test_*.py' -v
 
+      - name: Check deployment manifest validation
+        run: python3 -m unittest discover -s test -p 'test_deployment_manifest.py' -v
+
       - name: Check formatting
         run: forge fmt --check
 

@@ -82,6 +82,8 @@ This command reads the network and checks successful creation receipts, contract
 constructor arguments), runtime code hashes, dependencies, delay, and governance roles before writing
 `deployments/4663/operator-fee-router.json`. A failed check
 leaves any previous final manifest intact. Load `ROBINHOOD_MAINNET` from the private RPC configuration first.
+The finalizer accepts legacy flat Cast JSON and successful schema-version-1 envelopes used by Foundry 1.9.0.
+Malformed, failed, or unsupported envelopes are rejected before the manifest is published.
 
 Use the confirmed `router` address from that final manifest below, then initialize the router's records for all
 5,555 existing Operators. The bootstrap script deploys no contracts and finalizes bootstrap to enable reward deposits
