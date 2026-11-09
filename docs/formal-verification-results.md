@@ -65,6 +65,36 @@ The completed Certora qualification remains bounded to three Operators and two e
 The new tests and mathematical results do not silently enlarge that qualification.
 Detailed proof inputs and results remain private.
 
+## Production synchronization refinement milestone — November 9, 2026
+
+Fresh local-prover Certora runs execute the production synchronization logic for an
+arbitrary selected Operator ID and arbitrary distinct untouched Operator ID in 1–5,555,
+with exactly one registered reward asset. The redistribution rule permits stored aggregate
+weight up to 69,437,500; the queuing rule covers zero remaining weight and existing pending
+forfeiture. Both require positive newly forfeited entitlement and valid normalization,
+liability-cap and arithmetic-headroom assumptions. They establish correct owner/weight
+installation, scaled forfeiture accounting, preservation of another Operator's reward records and weight,
+and exclusion of the transferred Operator from its own redistribution. The queue rule
+also establishes accumulation into existing pending rewards. A separate successful-call
+witness over conditional prestates requires a nonzero prior pending balance and an actual fractional carry.
+
+All three rules, their generated assertions and non-vacuity checks passed. Arithmetic
+calls use explicit summaries with asserted domain checks, composed with the previously
+qualified four index-arithmetic and three settlement-arithmetic definitions. Their source
+bindings and full-production arithmetic domains were checked; those helper solver runs
+were reused rather than rerun. Fresh transition runs use Solidity 0.8.38, Cancun, optimizer
+200, via IR disabled, and the pinned source-built Certora prover. Production source at
+`08c87eff14f0b0c8bd65395548b21088ddcbe07f` is identical to the verified remote source at
+`90ce7b5106c714290643440f21d68527e5438125`; the production runtime template hash above is
+unchanged. Detailed per-rule results and instrumented-bytecode bindings remain private.
+
+This completes a conditional transition milestone, not full scaling verification. It does
+not establish that stored aggregate weight equals the sum of all Operator weights, prove
+the global liability equation inductively, or qualify arbitrary asset loops, bootstrap,
+all synchronization branches or repeated-call composition. The broader completed Certora
+system qualification remains the earlier three-Operator/two-token model. The earlier
+Halmos timeouts remain incomplete results; these fresh Certora rules are separate evidence.
+
 ## Historical Solidity 0.8.33 campaign
 
 The following campaign details and toolchain table describe the earlier Solidity 0.8.33
