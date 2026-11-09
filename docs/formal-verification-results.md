@@ -56,12 +56,13 @@ forfeiture. This removes collection size from the accounting algebra. An arbitra
 asset is handled through unique registry membership and processed/unprocessed loop phases.
 
 These are abstraction-level lemmas and a source-level induction argument, not a completed
-end-to-end Solidity scaling proof. Mechanized connection of aggregate sums to every storage
-write, production loop invariants, and the bootstrap/membership base remains outstanding.
+end-to-end Solidity scaling proof. Full mechanized connection of reward aggregates to
+storage writes and production loops remains outstanding. The subsequent weight-only milestone below addresses
+the stored weight sum and supporting bootstrap obligations through a qualified composition.
 A supplementary production-code frame check with fixed Operator identities and symbolic
 aggregate weight reached its assertion timeout; the symbolic-identity experiment was stopped
 without a result. Neither is counted as a passing proof.
-The completed Certora qualification remains bounded to three Operators and two exact tokens.
+The broader economic Certora qualification remains bounded to three Operators and two exact tokens.
 The new tests and mathematical results do not silently enlarge that qualification.
 Detailed proof inputs and results remain private.
 
@@ -88,12 +89,54 @@ were reused rather than rerun. Fresh transition runs use Solidity 0.8.38, Cancun
 `90ce7b5106c714290643440f21d68527e5438125`; the production runtime template hash above is
 unchanged. Detailed per-rule results and instrumented-bytecode bindings remain private.
 
-This completes a conditional transition milestone, not full scaling verification. It does
-not establish that stored aggregate weight equals the sum of all Operator weights, prove
+This completed a conditional transition milestone, not full scaling verification.
+On its own, it does not establish that stored aggregate weight equals the sum of all Operator weights, prove
 the global liability equation inductively, or qualify arbitrary asset loops, bootstrap,
 all synchronization branches or repeated-call composition. The broader completed Certora
 system qualification remains the earlier three-Operator/two-token model. The earlier
 Halmos timeouts remain incomplete results; these fresh Certora rules are separate evidence.
+
+## Aggregate-weight projection milestone — November 9, 2026
+
+A composition of native abstract proofs and a reviewed source-level simulation
+establishes the weight-only invariant that stored aggregate weight equals the sum of
+all stored Operator weights, using an ordinary rollback-aware ghost updated on every weight storage write. Operator identities are symbolic; the
+bootstrap cursor ranges over IDs 1–5,555 and its completed sentinel. Bootstrap checks
+cover up to 100 additions per call,
+and mutator checks cover registry lengths through 64 with nonoptimistic loop unwinding.
+Constructor bases and preservation cover every mutating entry point. Supporting
+invariants establish the cursor range, untouched suffix and registry-length bound.
+All four abstract invariants passed their constructor bases, nine non-bootstrap
+method-preservation slots each, and all native sanity checks. Composition validation
+passed all 13 required rule groups, including the separate bootstrap obligations.
+
+This conclusion combines native abstract proofs with a manually reviewed, source-bound
+relational simulation. Four native production-helper frame proofs establish which
+fields settlement, queuing, forfeiture recording and index updates can change.
+Settlement and queue outputs are unconstrained. The weight projection omits index and
+forfeiture-counter updates; those fields and reward checkpoints are excluded from the
+simulation's equality relation. Actual weight writes, aggregate updates, caller control
+flow and asset loops remain executed. Canonical returns and pure arithmetic results are
+overgeneralized. Applying the abstract theorem to production depends on the reviewed
+simulation and the linked exact-token model, not a fully mechanized full-state refinement.
+
+The bootstrap aggregate check completed all 102 safety assertions but timed out on its
+automatic non-vacuity check. A separate native successful-call witness supplies that
+obligation under stronger preconditions and identical summaries/hooks. Original native
+statuses are preserved. The direct mutator attempt retaining record/index storage updates
+timed out after 30 minutes; it is not counted as a pass. Detailed native results, composition
+validation, assumptions and bindings remain private.
+
+The executions use Solidity 0.8.38+commit.1835d247, Cancun, optimizer 200, via IR disabled,
+and the pinned source-built Certora prover. Production source at
+`46b9c1833e92c6471018452f14f4ef1ca8d15fa7` matches the verified source at
+`90ce7b5106c714290643440f21d68527e5438125`; the runtime-template hash above is unchanged.
+
+This is a weight-accounting milestone. It does not prove the 69,437,500 normalized-weight
+cap, global reward conservation, reward-field equivalence, arbitrary token callbacks or
+live deployment behavior. The external token scene still contains two linked exact-token
+implementations; the 64-slot loop domain does not qualify 64 distinct token integrations.
+The broader economic qualification remains bounded to three Operators and two exact tokens. Full scaling verification remains open.
 
 ## Historical Solidity 0.8.33 campaign
 
