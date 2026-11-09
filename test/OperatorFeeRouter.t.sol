@@ -815,11 +815,15 @@ contract OperatorFeeRouterTest is Test {
     function test_RepeatedFundedSyncPreservesQueuedForfeitureAndExcludesItsOperator() public {
         MockERC20 second = new MockERC20("Second", "SECOND");
         _register(address(second));
+        registry.setMultiplier(1, 11_000);
+        router.syncOperator(1);
         collection.setOwner(2, address(vault));
         router.syncOperator(2);
         _fundPair(second, 101);
         collection.setOwner(1, carol);
-        router.syncOperator(1); // Queue the first owner's rewards.
+        router.syncOperator(1); // Queue the first owner's rewards, including a nonzero fraction.
+        (, uint256 queuedFraction) = router.pendingForfeiture(1, address(token));
+        assertGt(queuedFraction, 0);
         _assertPairConservation(second, 101);
         _fundPair(second, 29);
         registry.setMultiplier(1, 12_500);
@@ -827,6 +831,9 @@ contract OperatorFeeRouterTest is Test {
         _assertPairConservation(second, 130);
         registry.setMultiplier(1, 10_000);
         router.syncOperator(1); // Same-owner decrease adds new rewards to the queue.
+        (uint256 queuedWhole, uint256 carriedFraction) = router.pendingForfeiture(1, address(token));
+        assertEq(queuedWhole, 129); // The two nonzero fractions carry into another whole unit.
+        assertGt(carriedFraction, 0);
         _assertPairConservation(second, 130);
         router.syncOperator(1); // Repeated identical snapshots must not double-forfeit.
         router.syncOperator(1);

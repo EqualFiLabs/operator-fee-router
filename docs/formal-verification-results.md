@@ -31,16 +31,18 @@ Raw results, validators, detailed bindings and native proof artifacts remain pri
 
 ## Scaling and sequence checks — November 9, 2026
 
-Candidate `856838e` adds a complete 5,555-Operator bootstrap with every Operator at
-12,500 weight, cold per-batch gas assertions, first/middle/last removal from a funded
+The scaling regression suite adds a complete 5,555-Operator bootstrap with every Operator at
+12,500 weight, cold per-batch gas assertions plus separate first/middle/final batch fixtures, first/middle/last removal from a funded
 64-asset registry, and repeated funded synchronization with queued forfeiture across
-ownership, multiplier and vault changes. The invariant handler now includes independent
+ownership, multiplier and vault changes, starting with nonzero queued fractional dust. The invariant handler now includes independent
 same-owner multiplier decreases. All five accounting invariants passed 256 runs and
 25,600 calls with zero reverts in the focused security-profile run.
 
 Measured cold call gas was 3,212,566 for the largest bootstrap batch and
 102,714 / 179,098 / 248,295 for first / middle / last funded asset removal.
-Regression limits are 5,000,000 per bootstrap batch and 300,000 per removal. These are
+Separate first/middle/final bootstrap fixtures measured 3,212,566 / 3,195,466 /
+1,776,261 gas. Removal assets are made claim-only during setup, before the measured
+transaction. Regression limits are 5,000,000 per bootstrap batch and 300,000 per removal. These are
 mock-fixture execution measurements under Foundry 1.9.0, not live-chain transaction-limit
 qualification; CI uses the pinned Foundry 1.7.1 toolchain.
 

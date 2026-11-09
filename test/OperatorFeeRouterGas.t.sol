@@ -131,6 +131,15 @@ contract OperatorFeeRouterQueuedGasTest is OperatorFeeRouterGasFixture {
 }
 
 contract OperatorFeeRouterRemovalGasTest is OperatorFeeRouterGasFixture {
+    function setUp() public override {
+        super.setUp();
+        vm.startPrank(router.routerTimelock());
+        for (uint256 i; i < tokens.length; ++i) {
+            router.setRewardAssetEnabled(address(tokens[i]), false);
+        }
+        vm.stopPrank();
+    }
+
     function _assetCount() internal pure override returns (uint256) {
         return 64;
     }
@@ -150,8 +159,6 @@ contract OperatorFeeRouterRemovalGasTest is OperatorFeeRouterGasFixture {
     function _remove(uint256 index) internal {
         address asset = address(tokens[index]);
         address authority = router.routerTimelock();
-        vm.prank(authority);
-        router.setRewardAssetEnabled(asset, false);
         bytes32[] memory beforeBooks = new bytes32[](64);
         for (uint256 i; i < 64; ++i) {
             beforeBooks[i] = _bookDigest(address(tokens[i]));
