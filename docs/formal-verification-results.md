@@ -29,6 +29,37 @@ The three-Operator/two-exact-token model and other bounds below remain unchanged
 This does not bind deployment constructor arguments or establish live-chain behavior.
 Raw results, validators, detailed bindings and native proof artifacts remain private.
 
+## Scaling and sequence checks — November 9, 2026
+
+Candidate `856838e` adds a complete 5,555-Operator bootstrap with every Operator at
+12,500 weight, cold per-batch gas assertions, first/middle/last removal from a funded
+64-asset registry, and repeated funded synchronization with queued forfeiture across
+ownership, multiplier and vault changes. The invariant handler now includes independent
+same-owner multiplier decreases. All five accounting invariants passed 256 runs and
+25,600 calls with zero reverts in the focused security-profile run.
+
+Measured cold call gas was 3,212,566 for the largest bootstrap batch and
+102,714 / 179,098 / 248,295 for first / middle / last funded asset removal.
+Regression limits are 5,000,000 per bootstrap batch and 300,000 per removal. These are
+mock-fixture execution measurements under Foundry 1.9.0, not live-chain transaction-limit
+qualification; CI uses the pinned Foundry 1.7.1 toolchain.
+
+A separate solver run established 28 integer/array lemmas with satisfiable premises
+and unsatisfiable negated conclusions. They cover aggregate conservation transformations,
+append identities, mapping frames, target-asset loop progress, bootstrap progress,
+index arithmetic and registry append/swap-pop preservation. The aggregate argument
+represents an arbitrary selected Operator separately from the sums of all other
+Operators' weights, weighted checkpoints and recorded entitlements, including pending
+forfeiture. This removes collection size from the accounting algebra. An arbitrary
+asset is handled through unique registry membership and processed/unprocessed loop phases.
+
+These are abstraction-level lemmas and a source-level induction argument, not a completed
+end-to-end Solidity scaling proof. Mechanized connection of aggregate sums to every storage
+write, production loop invariants, and the bootstrap/membership base remains outstanding.
+The completed Certora qualification remains bounded to three Operators and two exact tokens.
+The new tests and mathematical results do not silently enlarge that qualification.
+Detailed proof inputs and results remain private.
+
 ## Historical Solidity 0.8.33 campaign
 
 The following campaign details and toolchain table describe the earlier Solidity 0.8.33
