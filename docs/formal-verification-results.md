@@ -58,6 +58,9 @@ asset is handled through unique registry membership and processed/unprocessed lo
 These are abstraction-level lemmas and a source-level induction argument, not a completed
 end-to-end Solidity scaling proof. Mechanized connection of aggregate sums to every storage
 write, production loop invariants, and the bootstrap/membership base remains outstanding.
+A supplementary production-code frame check with fixed Operator identities and symbolic
+aggregate weight reached its assertion timeout; the symbolic-identity experiment was stopped
+without a result. Neither is counted as a passing proof.
 The completed Certora qualification remains bounded to three Operators and two exact tokens.
 The new tests and mathematical results do not silently enlarge that qualification.
 Detailed proof inputs and results remain private.
