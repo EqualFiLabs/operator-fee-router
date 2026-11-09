@@ -76,6 +76,14 @@ contract OperatorFeeRouterHandler is Test {
         registry.setMultiplier(operatorId, tiers[bound(rawTier, firstHigher, tiers.length - 1)]);
     }
 
+    function decreaseMultiplier(uint256 rawOperatorId, uint16 rawMultiplier) external {
+        uint256 operatorId = _operatorId(rawOperatorId);
+        if (collection.ownerOf(operatorId) == vault) return;
+        uint16 current = registry.multiplierBps(operatorId);
+        if (current <= 10_000) return;
+        registry.setMultiplier(operatorId, uint16(bound(rawMultiplier, 10_000, current - 1)));
+    }
+
     function transfer(uint256 rawOperatorId, uint256 rawOwner) external {
         uint256 operatorId = _operatorId(rawOperatorId);
         address nextOwner = _owners[bound(rawOwner, 0, _owners.length - 1)];
