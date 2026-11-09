@@ -105,8 +105,8 @@ Verify each deployed contract through Robinhood Blockscout using `forge verify-c
 
 ## Validation
 
-Foundry provides unit, fuzz, invariant, gas, and pinned-fork suites. GitHub Actions runs the timelock and sync Halmos
-harnesses. The [central formal verification summary](docs/formal-verification-results.md) documents the verification
+Foundry provides unit, fuzz, invariant, gas, and pinned-fork suites. GitHub Actions runs all 32 timelock, synchronization and lifecycle Halmos
+properties through the guarded runner, rejecting incomplete proofs. The [central formal verification summary](docs/formal-verification-results.md) documents the verification
 commands, proof coverage, model bounds, and recorded outcomes for Halmos and Certora. Generated proof outputs stay
 outside version control.
 

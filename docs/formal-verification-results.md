@@ -1,7 +1,38 @@
 # Formal verification summary
 
-These results describe the historical Solidity 0.8.33 campaign identified below.
-They do not establish formal verification of the current Solidity 0.8.38 build.
+## Current release binding — November 9, 2026
+
+Release candidate `90ce7b5106c714290643440f21d68527e5438125` uses Solidity
+0.8.38+commit.1835d247, Cancun, optimizer 200, via IR disabled and metadata hash none.
+All 32 Halmos properties passed in a fresh verification run: 5 timelock, 4 synchronization
+and 23 lifecycle properties. The guarded runner exited successfully with no incomplete-proof
+warnings. CI now uses that same runner, including expected property counts and rejection of
+warnings, errors and failed properties. Six controlled runner checks confirmed acceptance of
+complete output and rejection of warnings, errors, failed properties, missing properties and
+nonzero tool exits.
+
+The archived Solidity 0.8.38 campaign at
+`e17b56d08d2255b685705e05ef310e67cd3de997` was revalidated for reuse. Checks covered 538
+recorded inputs, 45 compiled job records and their native result trees, and the complete
+composition validators. They account for 70 definitions, 2 constructor bases, 18
+method-preservation slots, 36 synchronization witnesses and 9 claim partitions. Production
+sources, proof harnesses/specifications and 483 dependency Solidity files match the archive.
+
+The archived Certora executions targeted Osaka. Fresh Cancun/Osaka comparisons produced
+identical bytecode, ABI and storage layouts for 106 Foundry artifacts and 22 Certora harness
+build artifacts. The production runtime template also matches the archived campaign:
+12,432 bytes, SHA-256
+`e967b9b923d54e88bc26eda24d5ababe9e884cbd581bd4c1caffac04535b3851`.
+This is reuse of validated archived Certora evidence, not a new Cancun Certora execution.
+Archived instrumented outputs retain their original compiler configuration and hashes.
+The three-Operator/two-exact-token model and other bounds below remain unchanged.
+This does not bind deployment constructor arguments or establish live-chain behavior.
+Raw results, validators, detailed bindings and native proof artifacts remain private.
+
+## Historical Solidity 0.8.33 campaign
+
+The following campaign details and toolchain table describe the earlier Solidity 0.8.33
+execution; the current release evidence is distinguished above.
 
 The October 24–25, 2026 campaign completes the stated bounded verification through a
 composition of native proofs and successful-call witnesses. Production Solidity was unchanged.
@@ -111,8 +142,8 @@ private, decomposed proof inputs. Running only the unchanged monolithic economic
 still time out. The completion record binds each retained or composed obligation to its
 actual compiled inputs and native result.
 
-Existing CI runs the timelock and synchronization Halmos suites. The complete remote Halmos
-runner additionally covers lifecycle properties. Earlier mutation checks and 78 passing
+At the time of this historical campaign, CI ran only the timelock and synchronization
+Halmos suites. Current CI runs all three suites through the guarded runner. Earlier mutation checks and 78 passing
 non-fork Foundry tests remain complementary historical evidence; this closure did not rerun
 those tests or add fork, live-chain or deployment evidence.
 
