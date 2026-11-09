@@ -1,5 +1,8 @@
 # Formal verification summary
 
+These results describe the historical Solidity 0.8.33 campaign identified below.
+They do not establish formal verification of the current Solidity 0.8.38 build.
+
 The October 24–25, 2026 campaign completes the stated bounded verification through a
 composition of native proofs and successful-call witnesses. Production Solidity was unchanged.
 The versioned source and verification inputs match commit

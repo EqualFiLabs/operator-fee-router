@@ -23,9 +23,11 @@ chain-guarded to `46630`, has one immutable owner, can bind exactly one Router, 
 reward-asset registration and enablement calls. It cannot be reused as a production governance
 model.
 
-The recovered admin source compiles with the recorded Solidity 0.8.33, Cancun, optimizer-200, and
-metadata-free settings to the deployed runtime hash. The focused unit test keeps that historical
-hash as a regression assertion.
+The recovered admin source at commit `3de246a9151e54ac9c137efbe4b5f1dcc668c6b6` compiles with
+the recorded Solidity 0.8.33, Cancun, optimizer-200, and
+metadata-free settings to the deployed runtime hash. The current Solidity 0.8.38 build produces a
+different admin runtime, which the focused unit test pins separately. Historical deployment hashes
+remain unchanged.
 
 ## Deployment and configuration ceremony
 

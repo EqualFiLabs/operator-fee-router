@@ -21,7 +21,7 @@ forge build
 forge test
 ```
 
-Solidity is pinned to 0.8.33 with the Cancun EVM target.
+Solidity is pinned to 0.8.38 with the Cancun EVM target.
 
 ## Reward integration
 
