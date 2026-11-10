@@ -132,11 +132,53 @@ and the pinned source-built Certora prover. Production source at
 `46b9c1833e92c6471018452f14f4ef1ca8d15fa7` matches the verified source at
 `90ce7b5106c714290643440f21d68527e5438125`; the runtime-template hash above is unchanged.
 
-This is a weight-accounting milestone. It does not prove the 69,437,500 normalized-weight
+On its own, this weight-accounting milestone did not prove the 69,437,500 normalized-weight
 cap, global reward conservation, reward-field equivalence, arbitrary token callbacks or
 live deployment behavior. The external token scene still contains two linked exact-token
 implementations; the 64-slot loop domain does not qualify 64 distinct token integrations.
 The broader economic qualification remains bounded to three Operators and two exact tokens. Full scaling verification remains open.
+
+## Normalized weight cap and settlement slice — November 9, 2026
+
+The normalized maximum-weight bound is now established by composition. Native checks
+execute the production canonical guard, proving that successful reads return multipliers
+in 10,000–12,500 and that values outside this range revert. A separate invariant establishes
+that each arbitrary stored Operator weight is zero or in that range: its constructor base
+and all nine non-bootstrap mutators pass, with asset loops bounded pessimistically at 64.
+Bootstrap preservation is supplied by native assertions on all 100 possible weight writes,
+loop-unwinding checks and a successful positive-weight write witness. Unwritten locations
+retain their prestate normalization; reverted calls restore storage.
+
+Combined with the previously qualified stored-sum identity and zero-weight suffix, native
+finite-sum induction yields `totalEffectiveWeight <= 5,555 * 12,500 = 69,437,500`.
+This remains a composition with the reviewed weight-projection simulation and the
+source-level last-write/finite-sum arguments. It is not a direct native invariant over
+fully unabstracted production state. The separate parameterized bootstrap attempt remained
+incomplete and is not counted as a pass. The two linked exact-token assumptions remain.
+
+Two additional native rules execute actual production settlement and arithmetic without
+summaries. For an arbitrary Operator/asset pair, they prove conservation of scaled
+entitlement, normalized fractional carry, the exact checkpoint update, isolation of other
+pairs, unchanged selected liability/claimed/pending/index fields, and repeated settlement
+idempotence. Successful execution is asserted rather than assumed. A separate fractional-carry
+witness passes. All 21 native result nodes, including both non-vacuity checks, are verified.
+
+The settlement theorem assumes weight at most 12,500, checkpoint no greater than the index,
+prior fractional remainder below RAY, newly realizable scaled entitlement at most
+`uint96.max * RAY`, and prior accrued rewards at most `uint96.max`. It does not prove global
+reachability or preservation of these reward-domain assumptions, nor a uint96 post-accrual cap.
+
+Both milestones bind unchanged production source at
+`1fc9ba572871367a0383fbf0d58328fdaf018fea` to verified source at
+`90ce7b5106c714290643440f21d68527e5438125`, with Solidity 0.8.38, Cancun, optimizer 200,
+via IR disabled and the same pinned source-built Certora prover. The production runtime
+template hash above is unchanged. Detailed specifications, native results and validators
+remain private.
+
+This completes the targeted weight-bound and settlement-slice checkpoint. Full reward
+conservation across asset loops, forfeiture/redistribution and repeated lifecycle transitions
+remains open. The next useful step is to connect the settlement lemma to one complete
+asset-loop iteration and its accounting invariant, then assess the remaining proof cost.
 
 ## Historical Solidity 0.8.33 campaign
 
