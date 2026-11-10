@@ -177,8 +177,57 @@ remain private.
 
 This completes the targeted weight-bound and settlement-slice checkpoint. Full reward
 conservation across asset loops, forfeiture/redistribution and repeated lifecycle transitions
-remains open. The next useful step is to connect the settlement lemma to one complete
-asset-loop iteration and its accounting invariant, then assess the remaining proof cost.
+remains open. The next milestone below connects production settlement to one complete
+asset-loop iteration and its accounting invariant.
+
+## Production asset-iteration conservation — November 9, 2026
+
+Fresh Certora rules execute the unchanged production forfeiture/redistribution helper
+with exactly one registry asset. The complete iteration includes settlement, entitlement
+clearing, forfeiture recording, redistribution or queuing, and checkpointing. Production
+settlement and index arithmetic execute without summaries. Two general rules cover positive
+remaining weight and zero remaining weight; five successful-call witnesses cover redistribution,
+queue carry, zero forfeiture, unsettled rewards with fractional carries, and a zero-weight
+Operator. All seven rules and all 70 native result nodes are verified, including seven
+non-vacuity checks and generated loop-unwinding obligations. Successful execution is asserted,
+not filtered by an assumption that the call did not revert.
+
+Let `F` be the selected Operator's complete ordinary entitlement in RAY-scaled units,
+including unsettled index gains; `D` the remaining weight; `I` the index; `P` the selected
+queued entitlement in scaled units; and `r` the index remainder. The native rules establish:
+
+`F + r = D * (I_after - I_before) + (P_after - P_before) + r_after`.
+
+They also establish cleared ordinary entitlement, the new checkpoint, exact forfeiture-counter
+increments, normalized fractions, and unchanged liability/funding counters. Arbitrary other
+Operator/asset records, all Operator weights, and other assets' index and accounting fields
+are preserved. When `F` is zero the helper skips redistribution; the old remainder may still
+exceed the reduced denominator. That case is covered explicitly.
+
+The conditional domain permits zero weight or 10,000–12,500, total weight at most 69,437,500,
+and remaining weight either zero or at least 10,000. It requires checkpoint no greater than
+index, normalized fractions, `F <= uint96.max * RAY`, index remainder below 69,437,500,
+and explicit headroom for the index, queued amount and cumulative forfeiture counter.
+These are preconditions, not newly established global reachable-state invariants.
+
+A reviewed algebraic composition connects this transition to the per-asset liability
+equation: if remaining weight equals the sum of other Operators' weights, their recorded
+balances/checkpoints are framed, and the liability equation holds before the iteration,
+then the index gain, queue change and remainder preserve it afterward. This aggregate
+interpretation remains conditional on storage-sum correspondence. The helper removes weight
+from the total before the loop; its caller installs the new Operator weight afterward.
+The full processed/unprocessed loop invariant and caller continuation are not proved here.
+
+The runs bind production source at `ad39ae5add31f2f6ec25294620829c3de84ec9fe` to verified
+source at `90ce7b5106c714290643440f21d68527e5438125`, using Solidity 0.8.38, Cancun,
+optimizer 200, via IR disabled and the same pinned source-built Certora prover. The production
+runtime-template hash above is unchanged. Native results, exact instrumented-bytecode bindings,
+specifications and validators remain private.
+
+This completes the one-iteration milestone. Full global reward conservation still requires
+storage-linked aggregate invariants, registry/loop composition, and preservation of the
+arithmetic domains across lifecycle transitions. The broader economic qualification remains
+bounded to three Operators and two exact tokens; this result does not silently enlarge it.
 
 ## Historical Solidity 0.8.33 campaign
 
