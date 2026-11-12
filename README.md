@@ -64,12 +64,20 @@ lock. Historical raw accounting records remain readable but are no longer claima
 
 ## Robinhood deployment
 
-Deployment is deliberately split from bootstrap. First, deploy the router and its timelock:
+Deployment is deliberately split from bootstrap. Use an encrypted Foundry account whose public address matches
+`OPERATOR_ROUTER_DEPLOYER`. Foundry handles signing through `--account`; the scripts read only the public address.
+Load `ROBINHOOD_MAINNET` from the private RPC configuration, then deploy the router and its timelock:
 
 ```bash
+export OPERATOR_ROUTER_DEPLOYER="<deployer-public-address>"
+export OPERATOR_ROUTER_TIMELOCK_PROPOSER="<governance-safe-address>"
 forge script script/DeployOperatorFeeRouter.s.sol:DeployOperatorFeeRouter \
+  --account "<encrypted-account-name>" --sender "$OPERATOR_ROUTER_DEPLOYER" \
   --rpc-url "$ROBINHOOD_MAINNET" --broadcast
 ```
+
+Enter the keystore password when Foundry prompts. The encrypted account must sign for the configured deployer;
+providing a different account does not change the scripts' broadcast address. Omit `--broadcast` for simulation.
 
 The simulation writes `deployments/4663/operator-fee-router.candidate.json`; it is not evidence of deployment.
 After both deployment transactions confirm, use their transaction hashes to publish the final manifest:
@@ -92,10 +100,18 @@ for registered assets.
 ```bash
 export OPERATOR_FEE_ROUTER="<deployed-router-address>"
 forge script script/BootstrapOperatorFeeRouter.s.sol:BootstrapOperatorFeeRouter \
+  --account "<encrypted-account-name>" --sender "$OPERATOR_ROUTER_DEPLOYER" \
   --rpc-url "$ROBINHOOD_MAINNET" --broadcast
 ```
 
-The deployment requires `OPERATOR_ROUTER_DEPLOYER_PRIVATE_KEY` and `OPERATOR_ROUTER_TIMELOCK_PROPOSER`. The proposer
+Bootstrap starts at the router's current `nextOperatorId`, so it can continue a partially initialized deployment;
+an already-finalized router needs no further transactions. Successful completion leaves `nextOperatorId` at 5,556
+and `bootstrapFinalized` true. Confirm both values on the network after the transactions have mined.
+For an interrupted Foundry broadcast, reconcile its receipts and pending transactions before retrying; `--resume`
+resubmits the saved transaction sequence without rerunning the script and requires its expected sender nonces.
+
+Deployment requires `OPERATOR_ROUTER_DEPLOYER` and `OPERATOR_ROUTER_TIMELOCK_PROPOSER`. Bootstrap requires
+`OPERATOR_ROUTER_DEPLOYER` and `OPERATOR_FEE_ROUTER`. Neither script reads a raw private-key environment variable. The proposer
 should be a verified multisig or Governor; execution is intentionally open. Never commit private keys or RPC endpoints.
 The script is chain-guarded to Robinhood chain ID 4663. Final deployment evidence uses confirmed transaction receipts
 because EVM `block.number` is not the Robinhood L2 inclusion height.

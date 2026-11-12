@@ -8,15 +8,17 @@ contract BootstrapOperatorFeeRouter is Script {
     uint256 internal constant ROBINHOOD_CHAIN_ID = 4_663;
 
     error WrongChain(uint256 actual);
+    error ZeroDeployer();
 
     function run() external {
         if (block.chainid != ROBINHOOD_CHAIN_ID) revert WrongChain(block.chainid);
         OperatorFeeRouter router = OperatorFeeRouter(payable(vm.envAddress("OPERATOR_FEE_ROUTER")));
-        uint256 deployerKey = vm.envUint("OPERATOR_ROUTER_DEPLOYER_PRIVATE_KEY");
+        address deployer = vm.envAddress("OPERATOR_ROUTER_DEPLOYER");
+        if (deployer == address(0)) revert ZeroDeployer();
 
         if (router.bootstrapFinalized()) return;
 
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast(deployer);
         while (router.nextOperatorId() <= router.LAST_OPERATOR_ID()) {
             router.bootstrapOperators(router.MAX_BOOTSTRAP_BATCH());
         }

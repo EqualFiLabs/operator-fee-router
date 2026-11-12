@@ -12,12 +12,14 @@ contract DeployOperatorFeeRouter is Script {
     address internal constant OPERATOR_VAULT = 0x8AAAF9a22f439589987B8f1e69d79ca4f648C297;
 
     error WrongChain(uint256 actual);
+    error ZeroDeployer();
     error ZeroProposer();
 
     function run() external returns (OperatorFeeRouterTimelock timelock, OperatorFeeRouter router) {
         if (block.chainid != ROBINHOOD_CHAIN_ID) revert WrongChain(block.chainid);
 
-        uint256 deployerKey = vm.envUint("OPERATOR_ROUTER_DEPLOYER_PRIVATE_KEY");
+        address deployer = vm.envAddress("OPERATOR_ROUTER_DEPLOYER");
+        if (deployer == address(0)) revert ZeroDeployer();
         address proposer = vm.envAddress("OPERATOR_ROUTER_TIMELOCK_PROPOSER");
         if (proposer == address(0)) revert ZeroProposer();
 
@@ -26,7 +28,7 @@ contract DeployOperatorFeeRouter is Script {
         address[] memory executors = new address[](1);
         executors[0] = address(0);
 
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast(deployer);
         timelock = new OperatorFeeRouterTimelock(proposers, executors);
         router = new OperatorFeeRouter(OPERATOR_COLLECTION, ACTIVATION_REGISTRY, OPERATOR_VAULT, address(timelock));
         vm.stopBroadcast();
@@ -39,7 +41,7 @@ contract DeployOperatorFeeRouter is Script {
         OperatorFeeRouter router,
         address[] memory proposers,
         address[] memory executors
-    ) internal {
+    ) internal virtual {
         string memory objectKey = "operatorFeeRouter";
         vm.serializeUint(objectKey, "chainId", block.chainid);
         vm.serializeAddress(objectKey, "operatorCollection", OPERATOR_COLLECTION);
