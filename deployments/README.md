@@ -5,6 +5,7 @@ transactions, dependency provenance, and validation boundary for each deployment
 
 | Network | Chain ID | Deployment | Status |
 |---|---:|---|---|
+| Robinhood Mainnet | 4663 | [Operator Fee Router](4663/README.md) | Deployed; bootstrap finalized; USDG and WETH enabled |
 | Robinhood Testnet | 46630 | [Lottery integration rehearsal](46630/operator-fee-router-rehearsal.json) | Disposable historical evidence |
 
 The Robinhood Testnet deployment replaces the production timelock with a chain-guarded testnet admin.
