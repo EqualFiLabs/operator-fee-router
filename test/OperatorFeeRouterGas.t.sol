@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.33;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 import {MockActivationRegistry, MockAuthority, MockOperatorCollection, MockVault} from "./mocks/MockOperatorSystem.sol";
@@ -127,5 +127,63 @@ contract OperatorFeeRouterQueuedGasTest is OperatorFeeRouterGasFixture {
             (uint256 amount,) = router.pendingForfeiture(1, address(tokens[i]));
             assertGt(amount, 0);
         }
+    }
+}
+
+contract OperatorFeeRouterRemovalGasTest is OperatorFeeRouterGasFixture {
+    function setUp() public override {
+        super.setUp();
+        vm.startPrank(router.routerTimelock());
+        for (uint256 i; i < tokens.length; ++i) {
+            router.setRewardAssetEnabled(address(tokens[i]), false);
+        }
+        vm.stopPrank();
+    }
+
+    function _assetCount() internal pure override returns (uint256) {
+        return 64;
+    }
+
+    function testGas_RemoveFirstFundedAsset() public {
+        _remove(0);
+    }
+
+    function testGas_RemoveMiddleFundedAsset() public {
+        _remove(32);
+    }
+
+    function testGas_RemoveLastFundedAsset() public {
+        _remove(63);
+    }
+
+    function _remove(uint256 index) internal {
+        address asset = address(tokens[index]);
+        address authority = router.routerTimelock();
+        bytes32[] memory beforeBooks = new bytes32[](64);
+        for (uint256 i; i < 64; ++i) {
+            beforeBooks[i] = _bookDigest(address(tokens[i]));
+        }
+        (,,,, uint256 liability,,,,) = router.rewardBook(asset);
+        _coolDependencies();
+        vm.prank(authority);
+        uint256 start = gasleft();
+        router.deregisterRewardAsset(asset);
+        uint256 used = start - gasleft();
+        emit log_named_uint("cold funded removal gas", used);
+        assertLt(used, 300_000);
+        assertEq(router.expiredRewards(asset), liability);
+        assertEq(router.rewardAssetCount(), 63);
+        for (uint256 i; i < 63; ++i) {
+            assertEq(router.rewardAssetAt(i), address(tokens[i == index ? 63 : i]));
+        }
+        for (uint256 i; i < 64; ++i) {
+            if (i != index) assertEq(_bookDigest(address(tokens[i])), beforeBooks[i]);
+        }
+    }
+
+    function _bookDigest(address asset) internal view returns (bytes32) {
+        (bool ok, bytes memory data) = address(router).staticcall(abi.encodeWithSignature("rewardBook(address)", asset));
+        require(ok);
+        return keccak256(data);
     }
 }

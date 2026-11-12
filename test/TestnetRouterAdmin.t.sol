@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.33;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -21,9 +21,8 @@ contract RouterAdminTarget {
 }
 
 contract TestnetRouterAdminTest is Test {
-    address internal constant HISTORICAL_OWNER = 0x6Ae2aD9905FEDC8270b828294D4b9CEC7CBBE316;
-    bytes32 internal constant HISTORICAL_RUNTIME_HASH =
-        0x2ad320342a7fa2a96f6ca75f54dc05021bc82749d092264158aa635a1d7d59d7;
+    address internal constant PINNED_OWNER = 0x6Ae2aD9905FEDC8270b828294D4b9CEC7CBBE316;
+    bytes32 internal constant PINNED_RUNTIME_HASH = 0xf8241288f0fbf124a70d0247b3a11b2cc183400bdb5a5a181b2ce2517e23cc05;
 
     address internal owner = makeAddr("owner");
     address internal outsider = makeAddr("outsider");
@@ -38,9 +37,9 @@ contract TestnetRouterAdminTest is Test {
         target = new RouterAdminTarget();
     }
 
-    function test_ReproducesHistoricalRuntimeHash() public {
-        TestnetRouterAdmin historical = new TestnetRouterAdmin(HISTORICAL_OWNER);
-        assertEq(address(historical).codehash, HISTORICAL_RUNTIME_HASH);
+    function test_ReproducesPinnedRuntimeHash() public {
+        TestnetRouterAdmin pinned = new TestnetRouterAdmin(PINNED_OWNER);
+        assertEq(address(pinned).codehash, PINNED_RUNTIME_HASH);
     }
 
     function test_BindsOneRouterAndForwardsOnlyForOwner() public {

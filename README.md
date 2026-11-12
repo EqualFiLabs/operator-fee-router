@@ -21,7 +21,7 @@ forge build
 forge test
 ```
 
-Solidity is pinned to 0.8.33 with the Cancun EVM target.
+Solidity is pinned to 0.8.38 with the Cancun EVM target.
 
 ## Reward integration
 
@@ -82,6 +82,8 @@ This command reads the network and checks successful creation receipts, contract
 constructor arguments), runtime code hashes, dependencies, delay, and governance roles before writing
 `deployments/4663/operator-fee-router.json`. A failed check
 leaves any previous final manifest intact. Load `ROBINHOOD_MAINNET` from the private RPC configuration first.
+The finalizer accepts legacy flat Cast JSON and successful schema-version-1 envelopes used by Foundry 1.9.0.
+Malformed, failed, or unsupported envelopes are rejected before the manifest is published.
 
 Use the confirmed `router` address from that final manifest below, then initialize the router's records for all
 5,555 existing Operators. The bootstrap script deploys no contracts and finalizes bootstrap to enable reward deposits
@@ -103,8 +105,8 @@ Verify each deployed contract through Robinhood Blockscout using `forge verify-c
 
 ## Validation
 
-Foundry provides unit, fuzz, invariant, gas, and pinned-fork suites. GitHub Actions runs the timelock and sync Halmos
-harnesses. The [central formal verification summary](docs/formal-verification-results.md) documents the verification
+Foundry provides unit, fuzz, invariant, gas, and pinned-fork suites. GitHub Actions runs all 32 timelock, synchronization and lifecycle Halmos
+properties through the guarded runner, rejecting incomplete proofs. The [central formal verification summary](docs/formal-verification-results.md) documents the verification
 commands, proof coverage, model bounds, and recorded outcomes for Halmos and Certora. Generated proof outputs stay
 outside version control.
 

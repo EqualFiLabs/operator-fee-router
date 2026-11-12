@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.33;
+pragma solidity 0.8.38;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {OperatorFeeRouter} from "../src/OperatorFeeRouter.sol";
@@ -810,6 +810,82 @@ contract OperatorFeeRouterTest is Test {
 
         assertEq(router.pendingOperatorRewards(1, address(token)), 25 ether);
         assertEq(router.pendingOperatorRewards(2, address(token)), 100 ether);
+    }
+
+    function test_RepeatedFundedSyncPreservesQueuedForfeitureAndExcludesItsOperator() public {
+        MockERC20 second = new MockERC20("Second", "SECOND");
+        _register(address(second));
+        registry.setMultiplier(1, 11_000);
+        router.syncOperator(1);
+        collection.setOwner(2, address(vault));
+        router.syncOperator(2);
+        _fundPair(second, 101);
+        collection.setOwner(1, carol);
+        router.syncOperator(1); // Queue the first owner's rewards, including a nonzero fraction.
+        (, uint256 queuedFraction) = router.pendingForfeiture(1, address(token));
+        assertGt(queuedFraction, 0);
+        _assertPairConservation(second, 101);
+        _fundPair(second, 29);
+        registry.setMultiplier(1, 12_500);
+        router.syncOperator(1); // Settle at the old weight, preserving the queue.
+        _assertPairConservation(second, 130);
+        registry.setMultiplier(1, 10_000);
+        router.syncOperator(1); // Same-owner decrease adds new rewards to the queue.
+        (uint256 queuedWhole, uint256 carriedFraction) = router.pendingForfeiture(1, address(token));
+        assertEq(queuedWhole, 129); // The two nonzero fractions carry into another whole unit.
+        assertGt(carriedFraction, 0);
+        _assertPairConservation(second, 130);
+        router.syncOperator(1); // Repeated identical snapshots must not double-forfeit.
+        router.syncOperator(1);
+        _assertPairConservation(second, 130);
+        _fundPair(second, 17);
+        collection.setOwner(1, address(vault));
+        router.syncOperator(1);
+        _assertPairConservation(second, 147);
+        collection.setOwner(1, alice);
+        router.syncOperator(1);
+        _fundPair(second, 11);
+        collection.setOwner(2, bob);
+        router.syncOperator(2);
+        _assertPairConservation(second, 158);
+        for (uint256 i; i < 2; ++i) {
+            address asset = i == 0 ? address(token) : address(second);
+            router.flushPendingForfeiture(1, asset);
+            assertEq(router.pendingOperatorRewards(1, asset), 11);
+            assertEq(router.pendingOperatorRewards(2, asset), 147);
+            vm.prank(alice);
+            assertEq(router.claimOperatorRewards(1, asset, alice), 11);
+            vm.prank(bob);
+            assertEq(router.claimOperatorRewards(2, asset, bob), 147);
+            (uint256 pending, uint256 remainder) = router.pendingForfeiture(1, asset);
+            assertEq(pending, 0);
+            assertEq(remainder, 0);
+            assertEq(MockERC20(asset).balanceOf(address(router)), 0);
+        }
+        _assertPairConservation(second, 158);
+    }
+
+    function _fundPair(MockERC20 second, uint256 amount) internal {
+        _add(token, amount);
+        _add(second, amount);
+    }
+
+    function _assertPairConservation(MockERC20 second, uint256 totalFunded) internal view {
+        for (uint256 a; a < 2; ++a) {
+            address asset = a == 0 ? address(token) : address(second);
+            (uint256 index, uint256 indexRemainder,, uint256 claimed, uint256 liability,,,,) = router.rewardBook(asset);
+            uint256 scaled = indexRemainder;
+            for (uint256 id = 1; id <= 2; ++id) {
+                (,, uint16 weight,) = router.operatorState(id);
+                (uint256 checkpoint, uint256 remainder, uint256 accrued) = router.operatorAssetState(id, asset);
+                (uint256 pending, uint256 pendingRemainder) = router.pendingForfeiture(id, asset);
+                scaled += (accrued + pending) * router.RAY() + remainder + pendingRemainder + uint256(weight)
+                    * (index - checkpoint);
+            }
+            assertEq(scaled, liability * router.RAY());
+            assertEq(liability + claimed, totalFunded);
+            assertEq(MockERC20(asset).balanceOf(address(router)), liability);
+        }
     }
 
     function test_ClaimPaysCurrentOwnerToArbitraryReceiverAndCannotDoubleClaim() public {

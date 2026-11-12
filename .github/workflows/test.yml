@@ -24,6 +24,9 @@ jobs:
       - name: Check rehearsal safety and evidence validation
         run: python3 -m unittest discover -s scripts/mainnet-rehearsal -p 'test_*.py' -v
 
+      - name: Check deployment manifest validation
+        run: python3 -m unittest discover -s test -p 'test_deployment_manifest.py' -v
+
       - name: Check formatting
         run: forge fmt --check
 
@@ -48,8 +51,5 @@ jobs:
       - name: Install Halmos
         run: pipx install halmos==0.3.3
 
-      - name: Prove 24-hour timelock floor
-        run: halmos --contract OperatorFeeRouterTimelockHalmosTest --solver-timeout-assertion 2m --panic-error-codes '*'
-
-      - name: Prove Operator sync classification and weight deltas
-        run: halmos --contract OperatorSyncHalmosTest --solver-timeout-assertion 2m --panic-error-codes '*'
+      - name: Prove all 32 properties and reject incomplete proofs
+        run: bash scripts/run-halmos.sh

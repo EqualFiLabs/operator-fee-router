@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.8.33;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
@@ -74,6 +74,14 @@ contract OperatorFeeRouterHandler is Test {
         if (firstHigher == tiers.length) return;
 
         registry.setMultiplier(operatorId, tiers[bound(rawTier, firstHigher, tiers.length - 1)]);
+    }
+
+    function decreaseMultiplier(uint256 rawOperatorId, uint16 rawMultiplier) external {
+        uint256 operatorId = _operatorId(rawOperatorId);
+        if (collection.ownerOf(operatorId) == vault) return;
+        uint16 current = registry.multiplierBps(operatorId);
+        if (current <= 10_000) return;
+        registry.setMultiplier(operatorId, uint16(bound(rawMultiplier, 10_000, current - 1)));
     }
 
     function transfer(uint256 rawOperatorId, uint256 rawOwner) external {

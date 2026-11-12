@@ -1,5 +1,239 @@
 # Formal verification summary
 
+## Current release binding — November 9, 2026
+
+Release candidate `90ce7b5106c714290643440f21d68527e5438125` uses Solidity
+0.8.38+commit.1835d247, Cancun, optimizer 200, via IR disabled and metadata hash none.
+All 32 Halmos properties passed in a fresh verification run: 5 timelock, 4 synchronization
+and 23 lifecycle properties. The guarded runner exited successfully with no incomplete-proof
+warnings. CI now uses that same runner, including expected property counts and rejection of
+warnings, errors and failed properties. Six controlled runner checks confirmed acceptance of
+complete output and rejection of warnings, errors, failed properties, missing properties and
+nonzero tool exits.
+
+The archived Solidity 0.8.38 campaign at
+`e17b56d08d2255b685705e05ef310e67cd3de997` was revalidated for reuse. Checks covered 538
+recorded inputs, 45 compiled job records and their native result trees, and the complete
+composition validators. They account for 70 definitions, 2 constructor bases, 18
+method-preservation slots, 36 synchronization witnesses and 9 claim partitions. Production
+sources, proof harnesses/specifications and 483 dependency Solidity files match the archive.
+
+The archived Certora executions targeted Osaka. Fresh Cancun/Osaka comparisons produced
+identical bytecode, ABI and storage layouts for 106 Foundry artifacts and 22 Certora harness
+build artifacts. The production runtime template also matches the archived campaign:
+12,432 bytes, SHA-256
+`e967b9b923d54e88bc26eda24d5ababe9e884cbd581bd4c1caffac04535b3851`.
+This is reuse of validated archived Certora evidence, not a new Cancun Certora execution.
+Archived instrumented outputs retain their original compiler configuration and hashes.
+The three-Operator/two-exact-token model and other bounds below remain unchanged.
+This does not bind deployment constructor arguments or establish live-chain behavior.
+Raw results, validators, detailed bindings and native proof artifacts remain private.
+
+## Scaling and sequence checks — November 9, 2026
+
+The scaling regression suite adds a complete 5,555-Operator bootstrap with every Operator at
+12,500 weight, cold per-batch gas assertions plus separate first/middle/final batch fixtures, first/middle/last removal from a funded
+64-asset registry, and repeated funded synchronization with queued forfeiture across
+ownership, multiplier and vault changes, starting with nonzero queued fractional dust. The invariant handler now includes independent
+same-owner multiplier decreases. All five accounting invariants passed 256 runs and
+25,600 calls with zero reverts in the focused security-profile run.
+
+Measured cold call gas was 3,212,566 for the largest bootstrap batch and
+102,714 / 179,098 / 248,295 for first / middle / last funded asset removal.
+Separate first/middle/final bootstrap fixtures measured 3,212,566 / 3,195,466 /
+1,776,261 gas. Removal assets are made claim-only during setup, before the measured
+transaction. Regression limits are 5,000,000 per bootstrap batch and 300,000 per removal. These are
+mock-fixture execution measurements under Foundry 1.9.0, not live-chain transaction-limit
+qualification; CI uses the pinned Foundry 1.7.1 toolchain.
+
+A separate solver run established 28 integer/array lemmas with satisfiable premises
+and unsatisfiable negated conclusions. They cover aggregate conservation transformations,
+append identities, mapping frames, target-asset loop progress, bootstrap progress,
+index arithmetic and registry append/swap-pop preservation. The aggregate argument
+represents an arbitrary selected Operator separately from the sums of all other
+Operators' weights, weighted checkpoints and recorded entitlements, including pending
+forfeiture. This removes collection size from the accounting algebra. An arbitrary
+asset is handled through unique registry membership and processed/unprocessed loop phases.
+
+These are abstraction-level lemmas and a source-level induction argument, not a completed
+end-to-end Solidity scaling proof. Full mechanized connection of reward aggregates to
+storage writes and production loops remains outstanding. The subsequent weight-only milestone below addresses
+the stored weight sum and supporting bootstrap obligations through a qualified composition.
+A supplementary production-code frame check with fixed Operator identities and symbolic
+aggregate weight reached its assertion timeout; the symbolic-identity experiment was stopped
+without a result. Neither is counted as a passing proof.
+The broader economic Certora qualification remains bounded to three Operators and two exact tokens.
+The new tests and mathematical results do not silently enlarge that qualification.
+Detailed proof inputs and results remain private.
+
+## Production synchronization refinement milestone — November 9, 2026
+
+Fresh local-prover Certora runs execute the production synchronization logic for an
+arbitrary selected Operator ID and arbitrary distinct untouched Operator ID in 1–5,555,
+with exactly one registered reward asset. The redistribution rule permits stored aggregate
+weight up to 69,437,500; the queuing rule covers zero remaining weight and existing pending
+forfeiture. Both require positive newly forfeited entitlement and valid normalization,
+liability-cap and arithmetic-headroom assumptions. They establish correct owner/weight
+installation, scaled forfeiture accounting, preservation of another Operator's reward records and weight,
+and exclusion of the transferred Operator from its own redistribution. The queue rule
+also establishes accumulation into existing pending rewards. A separate successful-call
+witness over conditional prestates requires a nonzero prior pending balance and an actual fractional carry.
+
+All three rules, their generated assertions and non-vacuity checks passed. Arithmetic
+calls use explicit summaries with asserted domain checks, composed with the previously
+qualified four index-arithmetic and three settlement-arithmetic definitions. Their source
+bindings and full-production arithmetic domains were checked; those helper solver runs
+were reused rather than rerun. Fresh transition runs use Solidity 0.8.38, Cancun, optimizer
+200, via IR disabled, and the pinned source-built Certora prover. Production source at
+`08c87eff14f0b0c8bd65395548b21088ddcbe07f` is identical to the verified remote source at
+`90ce7b5106c714290643440f21d68527e5438125`; the production runtime template hash above is
+unchanged. Detailed per-rule results and instrumented-bytecode bindings remain private.
+
+This completed a conditional transition milestone, not full scaling verification.
+On its own, it does not establish that stored aggregate weight equals the sum of all Operator weights, prove
+the global liability equation inductively, or qualify arbitrary asset loops, bootstrap,
+all synchronization branches or repeated-call composition. The broader completed Certora
+system qualification remains the earlier three-Operator/two-token model. The earlier
+Halmos timeouts remain incomplete results; these fresh Certora rules are separate evidence.
+
+## Aggregate-weight projection milestone — November 9, 2026
+
+A composition of native abstract proofs and a reviewed source-level simulation
+establishes the weight-only invariant that stored aggregate weight equals the sum of
+all stored Operator weights, using an ordinary rollback-aware ghost updated on every weight storage write. Operator identities are symbolic; the
+bootstrap cursor ranges over IDs 1–5,555 and its completed sentinel. Bootstrap checks
+cover up to 100 additions per call,
+and mutator checks cover registry lengths through 64 with nonoptimistic loop unwinding.
+Constructor bases and preservation cover every mutating entry point. Supporting
+invariants establish the cursor range, untouched suffix and registry-length bound.
+All four abstract invariants passed their constructor bases, nine non-bootstrap
+method-preservation slots each, and all native sanity checks. Composition validation
+passed all 13 required rule groups, including the separate bootstrap obligations.
+
+This conclusion combines native abstract proofs with a manually reviewed, source-bound
+relational simulation. Four native production-helper frame proofs establish which
+fields settlement, queuing, forfeiture recording and index updates can change.
+Settlement and queue outputs are unconstrained. The weight projection omits index and
+forfeiture-counter updates; those fields and reward checkpoints are excluded from the
+simulation's equality relation. Actual weight writes, aggregate updates, caller control
+flow and asset loops remain executed. Canonical returns and pure arithmetic results are
+overgeneralized. Applying the abstract theorem to production depends on the reviewed
+simulation and the linked exact-token model, not a fully mechanized full-state refinement.
+
+The bootstrap aggregate check completed all 102 safety assertions but timed out on its
+automatic non-vacuity check. A separate native successful-call witness supplies that
+obligation under stronger preconditions and identical summaries/hooks. Original native
+statuses are preserved. The direct mutator attempt retaining record/index storage updates
+timed out after 30 minutes; it is not counted as a pass. Detailed native results, composition
+validation, assumptions and bindings remain private.
+
+The executions use Solidity 0.8.38+commit.1835d247, Cancun, optimizer 200, via IR disabled,
+and the pinned source-built Certora prover. Production source at
+`46b9c1833e92c6471018452f14f4ef1ca8d15fa7` matches the verified source at
+`90ce7b5106c714290643440f21d68527e5438125`; the runtime-template hash above is unchanged.
+
+On its own, this weight-accounting milestone did not prove the 69,437,500 normalized-weight
+cap, global reward conservation, reward-field equivalence, arbitrary token callbacks or
+live deployment behavior. The external token scene still contains two linked exact-token
+implementations; the 64-slot loop domain does not qualify 64 distinct token integrations.
+The broader economic qualification remains bounded to three Operators and two exact tokens. Full scaling verification remains open.
+
+## Normalized weight cap and settlement slice — November 9, 2026
+
+The normalized maximum-weight bound is now established by composition. Native checks
+execute the production canonical guard, proving that successful reads return multipliers
+in 10,000–12,500 and that values outside this range revert. A separate invariant establishes
+that each arbitrary stored Operator weight is zero or in that range: its constructor base
+and all nine non-bootstrap mutators pass, with asset loops bounded pessimistically at 64.
+Bootstrap preservation is supplied by native assertions on all 100 possible weight writes,
+loop-unwinding checks and a successful positive-weight write witness. Unwritten locations
+retain their prestate normalization; reverted calls restore storage.
+
+Combined with the previously qualified stored-sum identity and zero-weight suffix, native
+finite-sum induction yields `totalEffectiveWeight <= 5,555 * 12,500 = 69,437,500`.
+This remains a composition with the reviewed weight-projection simulation and the
+source-level last-write/finite-sum arguments. It is not a direct native invariant over
+fully unabstracted production state. The separate parameterized bootstrap attempt remained
+incomplete and is not counted as a pass. The two linked exact-token assumptions remain.
+
+Two additional native rules execute actual production settlement and arithmetic without
+summaries. For an arbitrary Operator/asset pair, they prove conservation of scaled
+entitlement, normalized fractional carry, the exact checkpoint update, isolation of other
+pairs, unchanged selected liability/claimed/pending/index fields, and repeated settlement
+idempotence. Successful execution is asserted rather than assumed. A separate fractional-carry
+witness passes. All 21 native result nodes, including both non-vacuity checks, are verified.
+
+The settlement theorem assumes weight at most 12,500, checkpoint no greater than the index,
+prior fractional remainder below RAY, newly realizable scaled entitlement at most
+`uint96.max * RAY`, and prior accrued rewards at most `uint96.max`. It does not prove global
+reachability or preservation of these reward-domain assumptions, nor a uint96 post-accrual cap.
+
+Both milestones bind unchanged production source at
+`1fc9ba572871367a0383fbf0d58328fdaf018fea` to verified source at
+`90ce7b5106c714290643440f21d68527e5438125`, with Solidity 0.8.38, Cancun, optimizer 200,
+via IR disabled and the same pinned source-built Certora prover. The production runtime
+template hash above is unchanged. Detailed specifications, native results and validators
+remain private.
+
+This completes the targeted weight-bound and settlement-slice checkpoint. Full reward
+conservation across asset loops, forfeiture/redistribution and repeated lifecycle transitions
+remains open. The next milestone below connects production settlement to one complete
+asset-loop iteration and its accounting invariant.
+
+## Production asset-iteration conservation — November 9, 2026
+
+Fresh Certora rules execute the unchanged production forfeiture/redistribution helper
+with exactly one registry asset. The complete iteration includes settlement, entitlement
+clearing, forfeiture recording, redistribution or queuing, and checkpointing. Production
+settlement and index arithmetic execute without summaries. Two general rules cover positive
+remaining weight and zero remaining weight; five successful-call witnesses cover redistribution,
+queue carry, zero forfeiture, unsettled rewards with fractional carries, and a zero-weight
+Operator. All seven rules and all 70 native result nodes are verified, including seven
+non-vacuity checks and generated loop-unwinding obligations. Successful execution is asserted,
+not filtered by an assumption that the call did not revert.
+
+Let `F` be the selected Operator's complete ordinary entitlement in RAY-scaled units,
+including unsettled index gains; `D` the remaining weight; `I` the index; `P` the selected
+queued entitlement in scaled units; and `r` the index remainder. The native rules establish:
+
+`F + r = D * (I_after - I_before) + (P_after - P_before) + r_after`.
+
+They also establish cleared ordinary entitlement, the new checkpoint, exact forfeiture-counter
+increments, normalized fractions, and unchanged liability/funding counters. Arbitrary other
+Operator/asset records, all Operator weights, and other assets' index and accounting fields
+are preserved. When `F` is zero the helper skips redistribution; the old remainder may still
+exceed the reduced denominator. That case is covered explicitly.
+
+The conditional domain permits zero weight or 10,000–12,500, total weight at most 69,437,500,
+and remaining weight either zero or at least 10,000. It requires checkpoint no greater than
+index, normalized fractions, `F <= uint96.max * RAY`, index remainder below 69,437,500,
+and explicit headroom for the index, queued amount and cumulative forfeiture counter.
+These are preconditions, not newly established global reachable-state invariants.
+
+A reviewed algebraic composition connects this transition to the per-asset liability
+equation: if remaining weight equals the sum of other Operators' weights, their recorded
+balances/checkpoints are framed, and the liability equation holds before the iteration,
+then the index gain, queue change and remainder preserve it afterward. This aggregate
+interpretation remains conditional on storage-sum correspondence. The helper removes weight
+from the total before the loop; its caller installs the new Operator weight afterward.
+The full processed/unprocessed loop invariant and caller continuation are not proved here.
+
+The runs bind production source at `ad39ae5add31f2f6ec25294620829c3de84ec9fe` to verified
+source at `90ce7b5106c714290643440f21d68527e5438125`, using Solidity 0.8.38, Cancun,
+optimizer 200, via IR disabled and the same pinned source-built Certora prover. The production
+runtime-template hash above is unchanged. Native results, exact instrumented-bytecode bindings,
+specifications and validators remain private.
+
+This completes the one-iteration milestone. Full global reward conservation still requires
+storage-linked aggregate invariants, registry/loop composition, and preservation of the
+arithmetic domains across lifecycle transitions. The broader economic qualification remains
+bounded to three Operators and two exact tokens; this result does not silently enlarge it.
+
+## Historical Solidity 0.8.33 campaign
+
+The following campaign details and toolchain table describe the earlier Solidity 0.8.33
+execution; the current release evidence is distinguished above.
+
 The October 24–25, 2026 campaign completes the stated bounded verification through a
 composition of native proofs and successful-call witnesses. Production Solidity was unchanged.
 The versioned source and verification inputs match commit
@@ -108,8 +342,8 @@ private, decomposed proof inputs. Running only the unchanged monolithic economic
 still time out. The completion record binds each retained or composed obligation to its
 actual compiled inputs and native result.
 
-Existing CI runs the timelock and synchronization Halmos suites. The complete remote Halmos
-runner additionally covers lifecycle properties. Earlier mutation checks and 78 passing
+At the time of this historical campaign, CI ran only the timelock and synchronization
+Halmos suites. Current CI runs all three suites through the guarded runner. Earlier mutation checks and 78 passing
 non-fork Foundry tests remain complementary historical evidence; this closure did not rerun
 those tests or add fork, live-chain or deployment evidence.
 
