@@ -52,7 +52,7 @@ The historical final state is:
 The Statics Lottery lifecycle later disabled WETH deposits through the testnet admin, proved that
 failed Router funding preserved the Lottery liability, re-enabled WETH, and successfully funded
 both WETH and STATICS reward books. Those transaction-level results are pinned in the linked
-`EqualFiLabs/fiddy` lifecycle manifest.
+`EqualFiLabs/bonanza` lifecycle manifest.
 
 ## Validation
 
